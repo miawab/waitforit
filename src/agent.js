@@ -12,6 +12,7 @@ Reply with JSON only, no markdown:
 {"status": "happened" | "changed" | "delayed" | "nothing",
  "summary": one or two short sentences to send the person, in LANGUAGE,
  "details": [0 to 4 short new facts, in LANGUAGE],
+ "earliest": "YYYY-MM-DD", the FIRST day it could happen (for "the week of Oct 19" that is Oct 19), or null,
  "expected": "YYYY-MM-DD", the LAST day it is likely to happen by (for "the week of Oct 19" that is the Sunday of that week), or null,
  "next_check_hours": a number,
  "done": true or false,
@@ -74,9 +75,10 @@ ${source.prompt}`;
   const expected = /^\d{4}-\d{2}-\d{2}$/.test(json.expected || '') ? json.expected : null;
   let hours = Number(json.next_check_hours) || 12;
   // Gemma tends to stay sleepy even when the date is close, so close to (or past) the expected day we insist.
-  const daysLeft = expected ? (new Date(`${expected}T23:59:59Z`) - now) / 86400e3 : Infinity;
-  if (daysLeft < 3) hours = Math.min(hours, 6);
-  else if (expected) hours = Math.min(hours, (daysLeft - 1) * 24);
+  const earliest = /^\d{4}-\d{2}-\d{2}$/.test(json.earliest || '') ? json.earliest : expected;
+  const daysToStart = earliest ? (new Date(`${earliest}T00:00:00Z`) - now) / 86400e3 : Infinity;
+  if (daysToStart < 3) hours = Math.min(hours, 6);
+  else hours = Math.min(hours, (daysToStart - 1) * 24);
   return {
     at: now.toISOString(),
     status: ['happened', 'changed', 'delayed', 'nothing'].includes(json.status) ? json.status : 'nothing',

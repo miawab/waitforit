@@ -4,26 +4,31 @@ import "./env.js";
 import { dueWatches, recordCheck, close } from './store.js';
 import { checkWatch } from './agent.js';
 import { notify } from './notify.js';
-import { CAPS, CapReached } from './limits.js';
+import { CAPS } from './limits.js';
+
+// One check of one watch, saved, with a message if there's news. Errors are left to the caller.
+export async function runWatch(w, now = new Date()) {
+  const c = await checkWatch(w, now);
+  const tooOld = now - new Date(w.createdAt) > CAPS.maxDaysWatching * 86400e3;
+  const patch = { nextCheckAt: c.nextCheckAt, lastHash: c.hash, lastInterval: c.interval || w.lastInterval };
+  if (c.expected) patch.expected = c.expected;
+  if (c.status === 'happened') patch.status = 'happened';
+  if (c.done || tooOld) Object.assign(patch, { active: false, status: c.done ? 'happened' : 'stopped' });
+  if (c.files?.length) patch.files = [...(w.files || []), ...c.files.map((f) => ({ ...f, foundAt: c.at, saved: false }))];
+  if (c.status !== 'nothing' || c.first) c.notified = await notify(w, c);
+  await recordCheck(w._id, c, patch);
+  return c;
+}
 
 export async function tick(now = new Date()) {
-  const due = await dueWatches(now);
   const log = [];
-  for (const w of due) {
+  for (const w of await dueWatches(now)) {
     try {
-      const c = await checkWatch(w, now);
-      const tooOld = now - new Date(w.createdAt) > CAPS.maxDaysWatching * 86400e3;
-      const patch = { nextCheckAt: c.nextCheckAt, lastHash: c.hash, lastInterval: c.interval || w.lastInterval };
-      if (c.expected) patch.expected = c.expected;
-      if (c.status === 'happened') patch.status = 'happened';
-      if (c.done || tooOld) Object.assign(patch, { active: false, status: c.done ? 'happened' : 'stopped' });
-      if (c.files?.length) patch.files = [...(w.files || []), ...c.files.map((f) => ({ ...f, foundAt: c.at, saved: false }))];
-      if (c.status !== 'nothing' || c.first) c.notified = await notify(w, c);
-      await recordCheck(w._id, c, patch);
+      const c = await runWatch(w, now);
       log.push(`${w._id.slice(0, 8)} ${c.status}${c.skipped ? ' (skipped)' : ''}: ${c.summary}`);
     } catch (e) {
-      // A cap or a broken page shouldn't stop the other watches. Try again in a few hours.
-      const retry = new Date(now.getTime() + (e instanceof CapReached ? 12 : 3) * 3600e3).toISOString();
+      // A cap or a broken page shouldn't stop the other watches. Try again later.
+      const retry = new Date(now.getTime() + (e.name === 'CapReached' ? 12 : 3) * 3600e3).toISOString();
       await recordCheck(w._id, { at: now.toISOString(), status: 'error', summary: e.message.slice(0, 200) }, { nextCheckAt: retry });
       log.push(`${w._id.slice(0, 8)} error: ${e.message}`);
     }

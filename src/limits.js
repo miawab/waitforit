@@ -16,7 +16,9 @@ export const CAPS = {
   },
 };
 
-export class CapReached extends Error {}
+export class CapReached extends Error {
+  name = 'CapReached';
+}
 
 // Call before using a paid-per-use service. Throws CapReached once today's cap is used up.
 export async function spend(service) {

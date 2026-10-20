@@ -82,10 +82,46 @@ export async function recordCheck(id, check, patch) {
   }
 }
 
+export async function removeWatch(id) {
+  const d = await open();
+  if (URI) await d.collection('watches').deleteOne({ _id: id });
+  else (d.watches = d.watches.filter((w) => w._id !== id)), await saveFile();
+}
+
 export async function updateWatch(id, patch) {
   const d = await open();
   if (URI) await d.collection('watches').updateOne({ _id: id }, { $set: patch });
   else Object.assign(d.watches.find((x) => x._id === id) || {}, patch), await saveFile();
+}
+
+// A person is just the random id their browser made, plus their Telegram chat once they connect it.
+export async function getPerson(owner) {
+  const d = await open();
+  if (URI) return d.collection('people').findOne({ _id: owner });
+  return d.people?.[owner] ? { _id: owner, ...d.people[owner] } : null;
+}
+
+export async function setPerson(owner, patch) {
+  const d = await open();
+  if (URI) return d.collection('people').updateOne({ _id: owner }, { $set: patch }, { upsert: true });
+  d.people = d.people || {};
+  d.people[owner] = { ...d.people[owner], ...patch };
+  await saveFile();
+}
+
+// The latest voice note for a watch (one per watch, replaced each time).
+export async function saveVoice(id, buf) {
+  const d = await open();
+  if (URI) return d.collection('voices').updateOne({ _id: id }, { $set: { audio: buf, at: new Date() } }, { upsert: true });
+  d.voices = d.voices || {};
+  d.voices[id] = buf.toString('base64');
+  await saveFile();
+}
+
+export async function getVoice(id) {
+  const d = await open();
+  if (URI) return (await d.collection('voices').findOne({ _id: id }))?.audio?.buffer || null;
+  return d.voices?.[id] ? Buffer.from(d.voices[id], 'base64') : null;
 }
 
 // Adds 1 to a named counter and returns the new value.

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wait For It</title>
+  <meta name="description" content="Tell it what you're waiting for. Stop checking.">
+  <link rel="icon" href="sloth.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#6b4a2b">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img src="sloth.svg" alt="" class="logo" width="56" height="56">
+      <h1>Wait For It</h1>
+      <p class="tag">Tell it what you're waiting for. Stop checking.</p>
+    </header>
+
+    <form id="add">
+      <label for="ask">What are you waiting for?</label>
+      <input id="ask" name="ask" required minlength="4" maxlength="200" autocomplete="off"
+        placeholder="the exam results are out">
+      <label for="url">Link to watch <span class="opt">(optional: without one, it searches the news)</span></label>
+      <input id="url" name="url" type="url" inputmode="url" autocomplete="off" placeholder="https://">
+      <div class="row">
+        <div class="lang" role="radiogroup" aria-label="Language for updates">
+          <label><input type="radio" name="lang" value="en" checked> English</label>
+          <label><input type="radio" name="lang" value="ur"> اردو</label>
+        </div>
+        <button type="submit" id="go">Wait for it</button>
+      </div>
+      <p id="err" class="err" role="alert"></p>
+    </form>
+
+    <section id="tg" class="tg" hidden>
+      <p id="pushmsg">Get a notification (and a voice note when it happens), even with this tab closed.</p>
+      <button id="pushbtn" class="ghost" type="button">Turn on notifications</button>
+    </section>
+
+    <section aria-live="polite">
+      <p id="payoff" class="payoff" hidden></p>
+      <ul id="list" class="list"></ul>
+    </section>
+
+    <footer>
+      <p>Gemma (an open-weight model) reads the page each time and decides if it happened, and when to look again. It checks rarely on purpose.</p>
+    </footer>
+  </main>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

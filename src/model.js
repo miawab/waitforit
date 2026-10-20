@@ -11,9 +11,17 @@ export const aiOn = () => Boolean(process.env.GEMINI_API_KEY || OLLAMA);
 // Returns the parsed JSON object Gemma replied with.
 export async function askJson(system, user) {
   if (!aiOn()) throw new Error('No GEMINI_API_KEY or OLLAMA_URL set');
-  await spend('gemma');
-  const { text, inTokens, outTokens } = OLLAMA ? await ollama(system, user) : await aiStudio(system, user);
-  return { json: parse(text), inTokens, outTokens };
+  // Now and then the reply isn't valid JSON (cut short, or with stray text): one more try fixes it.
+  for (let attempt = 1; ; attempt++) {
+    await spend('gemma');
+    const { text, inTokens, outTokens } = OLLAMA ? await ollama(system, user) : await aiStudio(system, user);
+    try {
+      return { json: parse(text), inTokens, outTokens };
+    } catch (e) {
+      if (attempt >= 2) throw e;
+      console.error('gemma reply was not JSON, retrying:', text.slice(0, 120));
+    }
+  }
 }
 
 async function ollama(system, user) {
