@@ -34,6 +34,7 @@ Rules:
 - Only say "happened" when the text actually shows it. Rumours, old news and unrelated pages are "nothing".
 - If what you told them last time already covers it, it is "nothing".
 - Set "done": true once it has happened and there is nothing left to wait for.
+- Some things happen again and again (a price changes, new posts, new results each term). If they are waiting for something like that, "done" is always false: tell them about this change and keep watching for the next one.
 - "files" only if they asked you to save or download something and a matching file link is in LINKS. Never invent links.
 - Plain words, for someone who is not technical.`;
 

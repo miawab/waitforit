@@ -12,7 +12,10 @@ export async function runWatch(w, now = new Date()) {
   const tooOld = now - new Date(w.createdAt) > CAPS.maxDaysWatching * 86400e3;
   const patch = { nextCheckAt: c.nextCheckAt, lastHash: c.hash, lastInterval: c.interval || w.lastInterval };
   if (c.expected) patch.expected = c.expected;
-  if (c.status === 'happened') patch.status = 'happened';
+  // "Tell me when the price changes" never ends after one change, whatever Gemma says.
+  const again = /chang|every|whenever|any new|goes (up|down)|drops?\b|بدل/i.test(w.ask);
+  if (again) c.done = false;
+  if (c.status === 'happened' && !again) patch.status = 'happened';
   if (c.done || tooOld) Object.assign(patch, { active: false, status: c.done ? 'happened' : 'stopped' });
   if (c.files?.length) patch.files = [...(w.files || []), ...c.files.map((f) => ({ ...f, foundAt: c.at, saved: false }))];
   if (c.status !== 'nothing' || c.first) c.notified = await notify(w, c);
