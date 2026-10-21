@@ -10,13 +10,13 @@ It looks rarely, on purpose. Each time it wakes up, **Gemma** (an open-weight mo
 ## How it works
 
 1. **A watch** = what you're waiting for, plus a link (or nothing, and it searches instead).
-2. **A scheduled job** wakes up every 30 minutes and runs only the watches that are due.
+2. **A free pinger** (like cron-job.org) calls `/api/tick` every 30 minutes; the server runs only the watches that are due.
 3. **Each check**: fetch the page (skip Gemma entirely if the page hasn't changed) or search Google, then ask Gemma for `happened / changed / delayed / nothing`, a short summary, the expected date and hours until the next check.
-4. **When there's news**: a Telegram message, and a voice note when it has actually happened.
+4. **When there's news**: a browser notification (works with the tab closed), and a voice note when it has actually happened or been delayed. English or Urdu.
 
 ## Run it on your own PC
 
-Needs Node 20+. Nothing else is required to try it: without a database it saves to `data/store.json`.
+Needs Node 22+. Nothing else is required to try it: without a database it saves to `data/store.json`.
 
 ```
 npm install
@@ -27,9 +27,14 @@ ollama pull gemma4:e4b-it-qat   # then OLLAMA_URL=http://localhost:11434 in .env
 
 node src/cli.js "the winners are announced" https://example.com/results
 node src/tick.js     # run whatever is due
+npm start            # the web page on http://localhost:3000
 ```
 
-Optional in `.env`: `SERPAPI_KEY` (watches without a link), `MONGODB_URI`, `TELEGRAM_BOT_TOKEN`, `ELEVENLABS_API_KEY`.
+Optional in `.env`: `SERPAPI_KEY` (watches without a link), `MONGODB_URI`, `ELEVENLABS_API_KEY` (voice notes), `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (browser notifications: `npx web-push generate-vapid-keys`), `TICK_SECRET` (protects `/api/tick`).
+
+## Put it online
+
+`render.yaml` describes one free Render web service. Create it from the repo, paste the secrets it asks for, then point a free pinger at `https://<your-app>/api/tick?key=<TICK_SECRET>` every 30 minutes. The ping also wakes the free server up, so nothing has to stay on.
 
 ## Limits
 

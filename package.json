@@ -10,5 +10,8 @@
   "dependencies": {
     "mongodb": "6.20.0",
     "web-push": "3.6.7"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
