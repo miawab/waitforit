@@ -37,9 +37,12 @@ async function readCapped(r) {
 
 export function htmlToText(html) {
   return html
-    .replace(/<(script|style|noscript|svg|head)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<(br|\/p|\/div|\/li|\/h\d|\/tr)[^>]*>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
+    .replace(/<!--[\s\S]*?-->|<![^>]*>/g, ' ')
+    // Menus and footers eat the text budget before the real content starts.
+    .replace(/<(script|style|noscript|svg|head|nav|footer|template)\b[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<(br|\/p|\/div|\/li|\/h\d|\/tr)\b[^>]*>/gi, '\n')
+    // A tag, skipping over quoted attributes (some sites put whole HTML snippets, with ">" in them, inside one).
+    .replace(/<\/?[a-z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/gi, ' ')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/[ \t]+/g, ' ')
     .replace(/\n\s*\n+/g, '\n')

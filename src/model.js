@@ -12,13 +12,21 @@ export const aiOn = () => Boolean(process.env.GEMINI_API_KEY || OLLAMA);
 export async function askJson(system, user) {
   if (!aiOn()) throw new Error('No GEMINI_API_KEY or OLLAMA_URL set');
   // Now and then the reply is empty, cut short, or the hosted model times out: up to two more tries fix it.
+  let waits = 0;
   for (let attempt = 1; ; attempt++) {
     await spend('gemma');
     try {
       const { text, inTokens, outTokens } = OLLAMA ? await ollama(system, user) : await aiStudio(system, user);
       return { json: parse(text), inTokens, outTokens };
     } catch (e) {
-      if (attempt >= 3 || /gemma 4\d\d/.test(e.message)) throw e; // a 4xx (bad key, quota) won't get better
+      // The free tier allows only so many tokens a minute: wait as long as Google says (a few times), then go on.
+      if (e.retryAfter && waits++ < 4) {
+        console.error(`gemma per-minute limit, waiting ${e.retryAfter}s`);
+        await new Promise((r) => setTimeout(r, e.retryAfter * 1000));
+        attempt--;
+        continue;
+      }
+      if (attempt >= 3 || /gemma 4\d\d/.test(e.message)) throw e; // other 4xx (bad key, daily quota) won't get better
       console.error(`gemma try ${attempt} failed, retrying:`, e.message.slice(0, 120));
       await new Promise((r) => setTimeout(r, 2000 * attempt));
     }
@@ -54,7 +62,13 @@ async function aiStudio(system, user) {
     }),
     signal: AbortSignal.timeout(90000),
   });
-  if (!r.ok) throw new Error(`gemma ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  if (!r.ok) {
+    const body = await r.text();
+    const err = new Error(`gemma ${r.status}: ${body.slice(0, 200)}`);
+    // A per-minute limit says when to come back ("retryDelay": "23s"); a daily one is PerDay and won't clear soon.
+    if (r.status === 429 && !/PerDay/i.test(body)) err.retryAfter = Math.min(65, Number(body.match(/"retryDelay":\s*"(\d+)/)?.[1]) || 30) + 2;
+    throw err;
+  }
   const data = await r.json();
   const parts = data.candidates?.[0]?.content?.parts || [];
   const answer = parts.filter((p) => !p.thought).map((p) => p.text || '').join('');

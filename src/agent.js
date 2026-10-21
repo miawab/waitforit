@@ -12,6 +12,7 @@ Reply with JSON only, no markdown:
 {"status": "happened" | "changed" | "delayed" | "nothing",
  "summary": one or two short sentences to send the person, in LANGUAGE,
  "details": [0 to 4 short new facts, in LANGUAGE],
+ "evidence": for "happened", "changed" or "delayed": a few words copied exactly from the page or results that show it, in the page's own language; otherwise null,
  "earliest": "YYYY-MM-DD", the FIRST day it could happen (for "the week of Oct 19" that is Oct 19), or null,
  "expected": "YYYY-MM-DD", the LAST day it is likely to happen by (for "the week of Oct 19" that is the Sunday of that week), or null,
  "next_check_hours": a number,
@@ -45,18 +46,19 @@ export async function searchQueryFor(ask) {
   return String(json.query || ask).slice(0, 100);
 }
 
-export async function checkWatch(watch, now = new Date()) {
+// `page` lets the eval hand in a saved copy of the page instead of fetching it live.
+export async function checkWatch(watch, now = new Date(), page = null) {
   let source;
   if (watch.url) {
-    const page = await readPage(watch.url);
+    page ||= await readPage(watch.url);
     if (watch.lastHash && page.hash === watch.lastHash) {
       // Same page as last time: nothing could have changed, so don't wake Gemma.
       return { at: now.toISOString(), status: 'nothing', summary: 'Page unchanged since last check.', skipped: true, nextCheckAt: later(watch, now, watch.lastInterval || 12), hash: page.hash };
     }
-    source = { hash: page.hash, links: page.links, prompt: `PAGE: ${watch.url}\nTITLE: ${page.title || ''}\n\n${page.text}\n\nLINKS:\n${page.links.map((l) => `${l.href} | ${l.text}`).join('\n')}` };
+    source = { hash: page.hash, links: page.links, text: `${page.title || ''}\n${page.text}`, prompt: `PAGE: ${watch.url}\nTITLE: ${page.title || ''}\n\n${page.text}\n\nLINKS:\n${page.links.map((l) => `${l.href} | ${l.text}`).join('\n')}` };
   } else if (searchOn()) {
     const found = await search(watch.query || watch.ask);
-    source = { links: found.results.map((r) => ({ href: r.link })), prompt: `SEARCH RESULTS for "${watch.query || watch.ask}" (past week):\n\n${found.text}\n\nLINKS:\n${found.results.map((r) => r.link).join('\n')}` };
+    source = { links: found.results.map((r) => ({ href: r.link })), text: found.text, prompt: `SEARCH RESULTS for "${watch.query || watch.ask}" (past week):\n\n${found.text}\n\nLINKS:\n${found.results.map((r) => r.link).join('\n')}` };
   } else {
     throw new Error('This watch has no link and search is off');
   }
@@ -79,9 +81,17 @@ ${source.prompt}`;
   const daysToStart = earliest ? (new Date(`${earliest}T00:00:00Z`) - now) / 86400e3 : Infinity;
   if (daysToStart < 3) hours = Math.min(hours, 6);
   else hours = Math.min(hours, (daysToStart - 1) * 24);
+  // The model suggests, the code checks: news only goes out if Gemma can point at the words that show it.
+  let status = ['happened', 'changed', 'delayed', 'nothing'].includes(json.status) ? json.status : 'nothing';
+  // Sometimes it gives a list of quotes instead of one; one real quote is enough.
+  const quotes = (Array.isArray(json.evidence) ? json.evidence : [json.evidence]).filter(Boolean).map((q) => String(q).slice(0, 300));
+  const evidence = quotes.find((q) => quoted(q, source.text)) || quotes.join(' | ');
+  const unproven = status !== 'nothing' && !quotes.some((q) => quoted(q, source.text));
+  if (unproven) status = 'nothing';
   return {
     at: now.toISOString(),
-    status: ['happened', 'changed', 'delayed', 'nothing'].includes(json.status) ? json.status : 'nothing',
+    status,
+    ...(unproven && { unproven: json.status, evidence }),
     summary: String(json.summary || '').slice(0, 400),
     details: (Array.isArray(json.details) ? json.details : []).slice(0, 4).map((d) => String(d).slice(0, 200)),
     expected,
@@ -94,6 +104,19 @@ ${source.prompt}`;
     tokens: { in: inTokens || 0, out: outTokens || 0 },
     first: !watch.checks?.length,
   };
+}
+
+// True if the quote really is in the text (ignoring case, spacing and punctuation), and long enough to mean something.
+// A quote that skips words ("India were champions... beat New Zealand") counts if every piece is there.
+export function quoted(quote, text) {
+  const norm = (s) => String(s).toLowerCase().normalize('NFKC').replace(/\p{M}/gu, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const t = norm(text);
+  const pieces = String(quote).split(/\.{3}|…/).map(norm).filter(Boolean);
+  // Long enough to mean something: two words, or a number like a version ("158.0").
+  const enough = (q) => q.includes(' ') && (q.length >= 6 || (q.length >= 4 && /\d/.test(q)));
+  if (!pieces.length || !pieces.every(enough)) return false;
+  // Second try without any spaces, for quotes like "Rs381.14" when the page says "Rs 381.14".
+  return pieces.every((q) => ` ${t} `.includes(` ${q} `) || (q.length >= 12 && t.replace(/ /g, '').includes(q.replace(/ /g, ''))));
 }
 
 // Clamp Gemma's choice to the caps.

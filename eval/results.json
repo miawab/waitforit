@@ -1,0 +1,521 @@
+{
+  "at": "2026-10-21T13:44:10.910Z",
+  "lang": "en",
+  "cases": 36,
+  "gemma": {
+    "correct": 35,
+    "falseAlarm": 0,
+    "missed": 1
+  },
+  "keyword": {
+    "correct": 18,
+    "falseAlarm": 15,
+    "missed": 3
+  },
+  "rows": [
+    {
+      "ask": "Linux 7.3 is released",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "not_yet",
+      "summary": "Linux 7.3 has been released.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 3900,
+        "out": 111
+      },
+      "seconds": 5.305
+    },
+    {
+      "ask": "Linux 7.4 is released",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "not_yet",
+      "summary": "Linux 7.3 is the latest mainline release; 7.4 has not been released yet.",
+      "nextCheckHours": 24,
+      "tokens": {
+        "in": 3900,
+        "out": 96
+      },
+      "seconds": 3.076
+    },
+    {
+      "ask": "Python 3.15 is released",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "Python 3.15.0 has been released.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 10591,
+        "out": 194
+      },
+      "seconds": 5.183
+    },
+    {
+      "ask": "Python 3.16 is released",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "Python 3.16 is currently in pre-release status and is not yet fully released.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 10591,
+        "out": 122
+      },
+      "seconds": 68.827
+    },
+    {
+      "ask": "Node.js 26 is released",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "Node.js 26 has been released.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 3876,
+        "out": 134
+      },
+      "seconds": 3.818
+    },
+    {
+      "ask": "Node.js 27 is released",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "Node.js 27 has not been released yet. The latest version is v26.",
+      "nextCheckHours": 24,
+      "tokens": {
+        "in": 3876,
+        "out": 93
+      },
+      "seconds": 55.884
+    },
+    {
+      "ask": "Go 1.27 is released",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "Go 1.27.0 has been released.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 10661,
+        "out": 134
+      },
+      "seconds": 4.235
+    },
+    {
+      "ask": "Go 1.28 is released",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "Go 1.28 has not been released yet. The latest major release is Go 1.27.0.",
+      "nextCheckHours": 24,
+      "tokens": {
+        "in": 10661,
+        "out": 106
+      },
+      "seconds": 55.522
+    },
+    {
+      "ask": "Rust 1.99 is released",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "Rust 1.99.0 has been released, and a minor update 1.99.1 is also out.",
+      "nextCheckHours": 12,
+      "tokens": {
+        "in": 12870,
+        "out": 131
+      },
+      "seconds": 61.28
+    },
+    {
+      "ask": "Rust 1.100 is released",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "Rust 1.99.1 was the latest release, but Rust 1.100 is not out yet.",
+      "nextCheckHours": 24,
+      "tokens": {
+        "in": 12871,
+        "out": 103
+      },
+      "seconds": 59.69
+    },
+    {
+      "ask": "Deno 2.9 is released",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "Deno 2.9 has been released (latest version is 2.9.7).",
+      "nextCheckHours": 12,
+      "tokens": {
+        "in": 9748,
+        "out": 106
+      },
+      "seconds": 59.48
+    },
+    {
+      "ask": "Deno 3 is released",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "Deno 3 has not been released yet. The latest version is v2.9.7.",
+      "nextCheckHours": 24,
+      "tokens": {
+        "in": 9746,
+        "out": 97
+      },
+      "seconds": 59.226
+    },
+    {
+      "ask": "Firefox 157 is out",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "not_yet",
+      "summary": "Firefox 157 is out.",
+      "nextCheckHours": 12,
+      "tokens": {
+        "in": 13349,
+        "out": 95
+      },
+      "seconds": 5.547
+    },
+    {
+      "ask": "Firefox 158 is out",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "not_yet",
+      "summary": "Firefox 158.0 is out!",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 13349,
+        "out": 100
+      },
+      "seconds": 40.569
+    },
+    {
+      "ask": "Firefox 159 is out",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "not_yet",
+      "summary": "Firefox 159 is not out yet. The latest version available is 158.0.1.",
+      "nextCheckHours": 24,
+      "tokens": {
+        "in": 13349,
+        "out": 90
+      },
+      "seconds": 59.309
+    },
+    {
+      "ask": "the 2026 World Cup final is played and we know the winner",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "The 2026 World Cup has finished, and Spain is the champion.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 14573,
+        "out": 139
+      },
+      "seconds": 60.354
+    },
+    {
+      "ask": "the 2030 World Cup kicks off",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The 2030 World Cup is scheduled for June 8 to July 21, 2030.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 11466,
+        "out": 126
+      },
+      "seconds": 59.996
+    },
+    {
+      "ask": "GTA 6 comes out",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "No new information about the release date. It is still scheduled for November 19, 2026.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 8481,
+        "out": 96
+      },
+      "seconds": 3589.385
+    },
+    {
+      "ask": "Artemis II launches",
+      "label": "happened",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The Artemis II launch is currently scheduled for April 1, 2026.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 9343,
+        "out": 117
+      },
+      "seconds": 4.018
+    },
+    {
+      "ask": "Artemis III launches",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The Artemis III launch is currently planned for June 2027.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 8464,
+        "out": 112
+      },
+      "seconds": 65.78
+    },
+    {
+      "ask": "the LA 2028 Olympics opening ceremony happens",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The 2028 Summer Olympics opening ceremony is scheduled for July 14, 2028.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 12938,
+        "out": 123
+      },
+      "seconds": 60.582
+    },
+    {
+      "ask": "the 2026 Winter Olympics take place",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "The 2026 Winter Olympics have taken place in Italy.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 12929,
+        "out": 140
+      },
+      "seconds": 60.629
+    },
+    {
+      "ask": "the 2026 T20 World Cup final is played",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "The 2026 T20 World Cup final has been played. India won the tournament, defeating New Zealand.",
+      "nextCheckHours": 12,
+      "tokens": {
+        "in": 11306,
+        "out": 140
+      },
+      "seconds": 66.332
+    },
+    {
+      "ask": "the 2027 Cricket World Cup starts",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The 2027 Cricket World Cup is scheduled to start on October 2, 2027.",
+      "nextCheckHours": 720,
+      "tokens": {
+        "in": 11768,
+        "out": 130
+      },
+      "seconds": 55.099
+    },
+    {
+      "ask": "the stable version of Android 17 comes out",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "Android 17 was released to the public on June 16, 2026.",
+      "nextCheckHours": 12,
+      "tokens": {
+        "in": 9635,
+        "out": 90
+      },
+      "seconds": 58.707
+    },
+    {
+      "ask": "iOS 27 is released to the public",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "iOS 27 was released to the public on September 14, 2026.",
+      "nextCheckHours": 12,
+      "tokens": {
+        "in": 7788,
+        "out": 107
+      },
+      "seconds": 68.116
+    },
+    {
+      "ask": "the 2026 US midterm elections are held",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The 2026 midterm elections are scheduled for November 3, 2026.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 9109,
+        "out": 124
+      },
+      "seconds": 3.964
+    },
+    {
+      "ask": "the 2026 Asian Games happen",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "The 2026 Asian Games have started.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 10383,
+        "out": 151
+      },
+      "seconds": 49.471
+    },
+    {
+      "ask": "the 2026 Nobel Prize in Literature is announced",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "The 2026 Nobel Prize in Literature has been awarded to Canadian poet Anne Carson.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 8932,
+        "out": 150
+      },
+      "seconds": 59.423
+    },
+    {
+      "ask": "the 2026 Nobel Peace Prize winner is announced",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "Navi Pillay has been announced as the 2026 Nobel Peace Prize winner.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 8734,
+        "out": 153
+      },
+      "seconds": 60.445
+    },
+    {
+      "ask": "the 2026 Nobel Peace Prize ceremony takes place",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The Nobel Peace Prize ceremony is scheduled for December 10, 2026.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 8734,
+        "out": 112
+      },
+      "seconds": 3.713
+    },
+    {
+      "ask": "the 2026 Commonwealth Games happen",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "The 2026 Commonwealth Games have taken place in Glasgow, Scotland.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 9342,
+        "out": 140
+      },
+      "seconds": 56.088
+    },
+    {
+      "ask": "The Elder Scrolls VI comes out",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "changed",
+      "keyword": "happened",
+      "summary": "The game is now expected to be released in 2028 at the earliest due to development delays.",
+      "nextCheckHours": 72,
+      "tokens": {
+        "in": 9365,
+        "out": 133
+      },
+      "seconds": 59.127
+    },
+    {
+      "ask": "the Nintendo Switch 2 is released",
+      "label": "happened",
+      "gemma": "happened",
+      "raw": "happened",
+      "keyword": "happened",
+      "summary": "The Nintendo Switch 2 has been released.",
+      "nextCheckHours": 6,
+      "tokens": {
+        "in": 8293,
+        "out": 147
+      },
+      "seconds": 60.373
+    },
+    {
+      "ask": "the 2026 Formula One world champion is decided",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The championship is still ongoing. Kimi Antonelli is currently leading the standings.",
+      "nextCheckHours": 48,
+      "tokens": {
+        "in": 10419,
+        "out": 77
+      },
+      "seconds": 13.125
+    },
+    {
+      "ask": "the 2027 Women's World Cup starts",
+      "label": "not_yet",
+      "gemma": "not_yet",
+      "raw": "nothing",
+      "keyword": "happened",
+      "summary": "The 2027 Women's World Cup is scheduled to start on June 24, 2027.",
+      "nextCheckHours": 168,
+      "tokens": {
+        "in": 10665,
+        "out": 119
+      },
+      "seconds": 56.253
+    }
+  ]
+}
