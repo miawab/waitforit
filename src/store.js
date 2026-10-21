@@ -94,7 +94,7 @@ export async function updateWatch(id, patch) {
   else Object.assign(d.watches.find((x) => x._id === id) || {}, patch), await saveFile();
 }
 
-// A person is just the random id their browser made, plus their Telegram chat once they connect it.
+// A person is just the random id their browser made, plus the browsers they turned notifications on in.
 export async function getPerson(owner) {
   const d = await open();
   if (URI) return d.collection('people').findOne({ _id: owner });

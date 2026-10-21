@@ -11,15 +11,16 @@ export const aiOn = () => Boolean(process.env.GEMINI_API_KEY || OLLAMA);
 // Returns the parsed JSON object Gemma replied with.
 export async function askJson(system, user) {
   if (!aiOn()) throw new Error('No GEMINI_API_KEY or OLLAMA_URL set');
-  // Now and then the reply isn't valid JSON (cut short, or with stray text): one more try fixes it.
+  // Now and then the reply is empty, cut short, or the hosted model times out: up to two more tries fix it.
   for (let attempt = 1; ; attempt++) {
     await spend('gemma');
-    const { text, inTokens, outTokens } = OLLAMA ? await ollama(system, user) : await aiStudio(system, user);
     try {
+      const { text, inTokens, outTokens } = OLLAMA ? await ollama(system, user) : await aiStudio(system, user);
       return { json: parse(text), inTokens, outTokens };
     } catch (e) {
-      if (attempt >= 2) throw e;
-      console.error('gemma reply was not JSON, retrying:', text.slice(0, 120));
+      if (attempt >= 3 || /gemma 4\d\d/.test(e.message)) throw e; // a 4xx (bad key, quota) won't get better
+      console.error(`gemma try ${attempt} failed, retrying:`, e.message.slice(0, 120));
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
     }
   }
 }
@@ -32,7 +33,7 @@ async function ollama(system, user) {
       model: MODEL,
       stream: false,
       format: 'json',
-      options: { temperature: 0.1, num_predict: 900 },
+      options: { temperature: 0.1, num_predict: 2048 },
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
     signal: AbortSignal.timeout(180000),
@@ -49,23 +50,41 @@ async function aiStudio(system, user) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: user }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 900 },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(90000),
   });
   if (!r.ok) throw new Error(`gemma ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const data = await r.json();
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const answer = parts.filter((p) => !p.thought).map((p) => p.text || '').join('');
+  // Gemma thinks first. Once in a while the answer lands only inside the thinking, so fall back to the last JSON in it,
+  // but only if it finished; if it ran out of room mid-thought, that JSON is a draft, so retry instead.
+  const finished = data.candidates?.[0]?.finishReason === 'STOP';
+  const thought = parts.filter((p) => p.thought).map((p) => p.text || '').join('');
+  if (!answer.trim()) console.error('gemma answer empty:', data.candidates?.[0]?.finishReason, data.usageMetadata?.thoughtsTokenCount, 'thinking tokens');
   return {
-    text: (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join(''),
+    text: answer.trim() ? answer : finished ? lastJson(thought) : '',
     inTokens: data.usageMetadata?.promptTokenCount,
     outTokens: data.usageMetadata?.candidatesTokenCount,
   };
+}
+
+function lastJson(s) {
+  const end = s.lastIndexOf('}');
+  for (let i = s.lastIndexOf('{', end); i >= 0; i = s.lastIndexOf('{', i - 1)) {
+    try {
+      JSON.parse(s.slice(i, end + 1));
+      return s.slice(i, end + 1);
+    } catch {}
+  }
+  return '';
 }
 
 function parse(raw) {
   const s = raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
   const start = s.indexOf('{');
   const end = s.lastIndexOf('}');
-  if (start < 0 || end < start) throw new Error('Gemma did not reply with JSON');
+  if (start < 0 || end < start) throw new Error(raw.trim() ? 'Gemma did not reply with JSON' : 'Gemma sent an empty reply');
   return JSON.parse(s.slice(start, end + 1));
 }
