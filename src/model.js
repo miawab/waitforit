@@ -41,7 +41,8 @@ async function ollama(system, user) {
       model: MODEL,
       stream: false,
       format: 'json',
-      options: { temperature: 0.1, num_predict: 2048 },
+      // Ollama's default context is 4,096 tokens; a page is often 10,000+, so ask for room to read all of it.
+      options: { temperature: 0.1, num_predict: 2048, num_ctx: 20480 },
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),
     signal: AbortSignal.timeout(180000),
