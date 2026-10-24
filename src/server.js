@@ -20,6 +20,16 @@ const ADDS_PER_DAY = Number(process.env.CAP_ADDS_PER_DAY || 80);
 const TICK_SECRET = process.env.TICK_SECRET;
 let ticking = false;
 useTimers();
+// Online, a free pinger calls /api/tick. On your own PC nothing does, so the server looks for due watches itself.
+if (!process.env.RENDER)
+  setInterval(() => {
+    if (ticking) return;
+    ticking = true;
+    tick()
+      .then((log) => log.length && console.log(log.join('\n')))
+      .catch((e) => console.error('tick', e))
+      .finally(() => (ticking = false));
+  }, 60e3);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 const send = (res, status, body) => {

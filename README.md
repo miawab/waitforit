@@ -5,42 +5,48 @@ Tell it what you're waiting for. Stop checking.
 > "Tell me when the results are out" + a link
 > "Tell me when petrol prices change in Pakistan" (no link needed)
 
-It looks rarely, on purpose. Each time it wakes up, **Gemma** (an open-weight model) reads the page or the latest search results and decides one thing: *has it happened, or changed, since I last told you?* Then it picks when to look next: once a week if the date is far away, every few hours when it's close. You only hear from it when there's real news.
+It looks rarely, on purpose. Each time it wakes up, **Gemma** (an open-weight model; an open-weight gpt-oss model on Groq stands in if Gemma's hosted quota runs out) reads the page or the latest search results and decides one thing: *has it happened, or changed, since I last told you?* Then it picks when to look next: once a week if the date is far away, every few hours when it's close. You only hear from it when there's real news.
 
 ## How it works
 
 1. **A watch** = what you're waiting for, plus a link (or nothing, and it searches instead).
-2. **A free pinger** (like cron-job.org) calls `/api/tick` every 30 minutes; the server runs only the watches that are due.
+2. **A free pinger** (like cron-job.org) calls `/api/tick` every few minutes; the server runs only the watches that are due. When a page names an exact time, it wakes up a minute after it.
 3. **Each check**: fetch the page (skip Gemma entirely if the page hasn't changed) or search Google, then ask Gemma for `happened / changed / delayed / nothing`, a short summary, the expected date and hours until the next check.
 4. **When there's news**: a browser notification (works with the tab closed), and a voice note when it has actually happened or been delayed. English or Urdu.
 
 ## Run it on your own PC
 
-Needs Node 22+. Nothing else is required to try it: without a database it saves to `data/store.json`.
+Everything runs on one PC with no accounts: Gemma through [Ollama](https://ollama.com), watches saved in `data/store.json`, notifications in your browser. Needs Node 22+ and Ollama.
 
 ```
+git clone https://github.com/miawab/waitforit.git
+cd waitforit
 npm install
-# either: Gemma on your own machine (nothing leaves your PC)
-ollama pull gemma4:e4b-it-qat   # then OLLAMA_URL=http://localhost:11434 in .env
-# or: Gemma hosted on Google AI Studio
-# GEMINI_API_KEY=... in .env
-# or as a backup (or on its own): an open-weight model on Groq's free plan, used when AI Studio is out of quota
-# GROQ_API_KEY=... in .env   (GROQ_MODEL picks the model; default openai/gpt-oss-120b)
+ollama pull gemma4:e4b-it-qat     # Gemma, about 6 GB; a 6 GB graphics card is enough
+cp .env.example .env              # already points at Ollama on this PC
+npm start                         # open http://localhost:3000
+```
 
+Then press **2 min** under the form: it watches a practice page whose "doors open" in two minutes, wakes up a minute after, and tells you. Turn on notifications first to get the alert with the tab closed.
+
+On your own PC the server checks for due watches every minute by itself, and makes its own notification keys (kept in `data/`). Gemma on a home graphics card takes from a few seconds (short pages) to a minute or two (long pages) per check.
+
+No graphics card? Put a free `GROQ_API_KEY` (an open-weight model, gpt-oss-120b) or a `GEMINI_API_KEY` in `.env` instead of `OLLAMA_URL`. Optional: `SERPAPI_KEY` for watches without a link, `ELEVENLABS_API_KEY` for voice notes. See `.env.example`.
+
+From the terminal instead of the page:
+
+```
 node src/cli.js "the winners are announced" https://example.com/results
 node src/tick.js     # run whatever is due
-npm start            # the web page on http://localhost:3000
 ```
-
-Optional in `.env`: `SERPAPI_KEY` (watches without a link), `MONGODB_URI`, `ELEVENLABS_API_KEY` (voice notes), `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (browser notifications: `npx web-push generate-vapid-keys`), `TICK_SECRET` (protects `/api/tick`).
 
 ## Put it online
 
-`render.yaml` describes one free Render web service. Create it from the repo, paste the secrets it asks for, then point a free pinger at `https://<your-app>/api/tick?key=<TICK_SECRET>` every 30 minutes. The ping also wakes the free server up, so nothing has to stay on.
+`render.yaml` describes one free Render web service. Create it from the repo, paste the secrets it asks for, then point a free pinger at `https://<your-app>/api/tick?key=<TICK_SECRET>` every 5 minutes. The ping also wakes the free server up, so nothing has to stay on.
 
 ## Limits
 
-Every service has a daily cap (`src/limits.js`) so free plans can't be used up: Gemma 400 calls, search 8, voice 15. At most 5 watches per person, never more often than every 30 minutes, never watching for more than 45 days.
+Free plans only, so every service has a cap (`src/limits.js`): per day, 400 Gemma calls, 300 Groq calls, 8 searches and 8 voice notes, and background checks leave 30% of each for people trying the site. At most 5 watches per person, 10 new ones per address a day, never more often than every 30 minutes (except right around an exact time it was told), never watching for more than 45 days. Nonsense is turned away before it costs anything, and a watch that finds nothing about itself 5 times in a row stops.
 
 ## Credits
 
