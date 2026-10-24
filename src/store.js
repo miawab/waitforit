@@ -84,8 +84,8 @@ export async function recordCheck(id, check, patch) {
 
 export async function removeWatch(id) {
   const d = await open();
-  if (URI) await d.collection('watches').deleteOne({ _id: id });
-  else (d.watches = d.watches.filter((w) => w._id !== id)), await saveFile();
+  if (URI) await Promise.all([d.collection('watches').deleteOne({ _id: id }), d.collection('voices').deleteOne({ _id: id })]);
+  else (d.watches = d.watches.filter((w) => w._id !== id)), d.voices && delete d.voices[id], await saveFile();
 }
 
 export async function updateWatch(id, patch) {

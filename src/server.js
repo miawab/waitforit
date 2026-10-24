@@ -103,6 +103,15 @@ async function api(req, res, path) {
     return send(res, 200, { ok: true });
   }
 
+  // Gone for good: the watch, its history and its voice note.
+  const remove = path.match(/^\/api\/watches\/([a-f0-9-]{36})\/remove$/);
+  if (req.method === 'POST' && remove) {
+    const w = await getWatch(remove[1]);
+    if (!w || w.owner !== owner) return send(res, 404, { error: 'not found' });
+    await removeWatch(w._id);
+    return send(res, 200, { ok: true });
+  }
+
   if (req.method === 'GET' && path === '/api/config') {
     return send(res, 200, { push: pushOn() ? process.env.VAPID_PUBLIC_KEY : null, caps: { watches: CAPS.watchesPerPerson } });
   }

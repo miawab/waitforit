@@ -43,8 +43,8 @@ function card(w) {
     ${latest?.details?.length ? `<ul class="details"${dir}>${latest.details.map((d) => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}
     ${w.files.length ? `<p class="files">📎 ${w.files.map((f) => `<a href="${esc(f.href)}" target="_blank" rel="noopener">${esc(f.name || 'file')}</a>`).join(', ')}</p>` : ''}
     <div class="meta">
-      <span>${real.length} check${real.length === 1 ? '' : 's'} (${gemmaRuns} read by Gemma)${w.active && w.nextCheckAt ? `, next ${when(w.nextCheckAt)}` : ''}${w.expected ? `, expected by ${w.expected}` : ''}</span>
-      <span>${w.checks.some((c) => c.voice) ? `<button class="ghost" data-play="${w.id}">▶ Voice note</button> ` : ''}${w.active ? `<button class="ghost" data-stop="${w.id}">Stop</button>` : ''}</span>
+      <span>${real.length} check${real.length === 1 ? '' : 's'} (${gemmaRuns} read by the AI)${w.active && w.nextCheckAt ? `, next ${when(w.nextCheckAt)}` : ''}${w.expected ? `, expected by ${w.expected}` : ''}</span>
+      <span>${w.checks.some((c) => c.voice) ? `<button class="ghost" data-play="${w.id}">▶ Voice note</button> ` : ''}${w.active ? `<button class="ghost" data-stop="${w.id}">Stop</button> ` : ''}<button class="ghost" data-remove="${w.id}">Remove</button></span>
     </div>
     <details class="hist"><summary>Every check</summary><ol>${w.checks
       .slice()
@@ -68,6 +68,7 @@ function payoff(watches) {
 async function load() {
   const watches = await api('/api/watches');
   $('#list').replaceChildren(...watches.map(card));
+  $('#empty').hidden = watches.length > 0;
   payoff(watches);
 }
 
@@ -90,10 +91,20 @@ $('#add').addEventListener('submit', async (e) => {
 });
 
 $('#list').addEventListener('click', async (e) => {
-  if (e.target.dataset?.play) return playVoice(e.target.dataset.play);
-  const id = e.target.dataset?.stop;
-  if (!id) return;
-  await api(`/api/watches/${id}/stop`, { method: 'POST' });
+  const { play, stop, remove } = e.target.dataset || {};
+  if (play) return playVoice(play);
+  if (stop) {
+    await api(`/api/watches/${stop}/stop`, { method: 'POST' });
+    return load();
+  }
+  if (!remove) return;
+  // Two taps, so a stray one doesn't delete a watch and its history.
+  if (!e.target.classList.contains('sure')) {
+    e.target.classList.add('sure');
+    e.target.textContent = 'Tap again to remove';
+    return setTimeout(() => e.target.isConnected && (e.target.classList.remove('sure'), (e.target.textContent = 'Remove')), 4000);
+  }
+  await api(`/api/watches/${remove}/remove`, { method: 'POST' });
   load();
 });
 
