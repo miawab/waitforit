@@ -73,7 +73,7 @@ EXPECTED DATE YOU NOTED: ${watch.expected || 'unknown'}
 ${source.prompt}`;
 
   const language = watch.lang === 'ur' ? 'Urdu (Urdu script)' : 'simple English';
-  const { json, inTokens, outTokens } = await askJson(SYSTEM_PROMPT.replace(/LANGUAGE/g, language), user);
+  const { json, inTokens, outTokens, model } = await askJson(SYSTEM_PROMPT.replace(/LANGUAGE/g, language), user);
   const known = new Set(source.links.map((l) => l.href));
   const expected = /^\d{4}-\d{2}-\d{2}$/.test(json.expected || '') ? json.expected : null;
   let hours = Number(json.next_check_hours) || 12;
@@ -101,7 +101,7 @@ ${source.prompt}`;
     interval: hours,
     nextCheckAt: later(watch, now, hours),
     hash: source.hash,
-    model: MODEL,
+    model: model || MODEL,
     tokens: { in: inTokens || 0, out: outTokens || 0 },
     first: !watch.checks?.length,
   };

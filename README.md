@@ -24,6 +24,8 @@ npm install
 ollama pull gemma4:e4b-it-qat   # then OLLAMA_URL=http://localhost:11434 in .env
 # or: Gemma hosted on Google AI Studio
 # GEMINI_API_KEY=... in .env
+# or as a backup (or on its own): an open-weight model on Groq's free plan, used when AI Studio is out of quota
+# GROQ_API_KEY=... in .env   (GROQ_MODEL picks the model; default openai/gpt-oss-120b)
 
 node src/cli.js "the winners are announced" https://example.com/results
 node src/tick.js     # run whatever is due

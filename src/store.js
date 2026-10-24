@@ -124,6 +124,13 @@ export async function getVoice(id) {
   return d.voices?.[id] ? Buffer.from(d.voices[id], 'base64') : null;
 }
 
+// Reads a named counter without changing it.
+export async function peek(key) {
+  const d = await open();
+  if (URI) return (await d.collection('counters').findOne({ _id: key }))?.n || 0;
+  return d.counters[key] || 0;
+}
+
 // Adds 1 to a named counter and returns the new value.
 export async function bump(key) {
   const d = await open();

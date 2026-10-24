@@ -1,10 +1,10 @@
 import "./env.js";
 // Wakes up, runs every watch that is due, saves the results, and tells people about real news.
 // Runs on a schedule (GitHub Actions) or by hand: `node src/tick.js`.
-import { dueWatches, recordCheck, close } from './store.js';
+import { dueWatches, recordCheck, updateWatch, close } from './store.js';
 import { checkWatch } from './agent.js';
 import { notify } from './notify.js';
-import { CAPS } from './limits.js';
+import { CAPS, tickBudgetUsed } from './limits.js';
 
 // One check of one watch, saved, with a message if there's news. Errors are left to the caller.
 export async function runWatch(w, now = new Date()) {
@@ -26,13 +26,19 @@ export async function runWatch(w, now = new Date()) {
 export async function tick(now = new Date()) {
   const log = [];
   for (const w of await dueWatches(now)) {
+    if (await tickBudgetUsed()) {
+      // Leave the rest of today's AI calls for new visitors; this watch just waits a few hours.
+      await updateWatch(w._id, { nextCheckAt: new Date(now.getTime() + 4 * 3600e3).toISOString() });
+      log.push(`${w._id.slice(0, 8)} deferred: background share of today's AI calls used`);
+      continue;
+    }
     try {
       const c = await runWatch(w, now);
       log.push(`${w._id.slice(0, 8)} ${c.status}${c.skipped ? ' (skipped)' : ''}: ${c.summary}`);
     } catch (e) {
       // A cap or a broken page shouldn't stop the other watches. Try again later.
       const retry = new Date(now.getTime() + (e.name === 'CapReached' || e.outage ? 12 : 3) * 3600e3).toISOString();
-      const summary = e.outage ? "couldn't check: Gemma's quota is used up, trying again later" : e.message.slice(0, 200);
+      const summary = e.outage ? "couldn't check: the AI's free quota is used up, trying again later" : e.message.slice(0, 200);
       await recordCheck(w._id, { at: now.toISOString(), status: 'error', summary }, { nextCheckAt: retry });
       log.push(`${w._id.slice(0, 8)} error: ${e.message}`);
     }

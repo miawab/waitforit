@@ -84,7 +84,7 @@ async function api(req, res, path) {
       console.error('add', e.message);
       if (w) await removeWatch(w._id); // a watch whose first look failed would just sit there broken
       if (e instanceof CapReached) return send(res, 429, { error: 'busy today, try tomorrow' });
-      if (e.outage) return send(res, 503, { error: "Gemma can't be reached right now (its free quota is used up). Nothing was saved; try again later." });
+      if (e.outage) return send(res, 503, { error: "The AI can't be reached right now (today's free quota is used up). Nothing was saved; try again later." });
       return send(res, 502, { error: `couldn't read that: ${e.message.slice(0, 120)}` });
     }
   }
