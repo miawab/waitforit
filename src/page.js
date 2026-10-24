@@ -7,19 +7,27 @@ const MAX_BYTES = 2_000_000;
 const MAX_TEXT = 14_000;
 
 export async function readPage(url) {
-  const u = await safeUrl(url);
-  const r = await fetch(u, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; waitforit/0.1; checks a page for one person)' },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(20000),
-  });
+  // Follow redirects by hand: each hop must pass the same "public address only" check as the first link.
+  let u = await safeUrl(url);
+  let r;
+  for (let hop = 0; ; hop++) {
+    r = await fetch(u, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; waitforit/0.1; checks a page for one person)' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(20000),
+    });
+    const next = r.status >= 300 && r.status < 400 && r.headers.get('location');
+    if (!next) break;
+    if (hop >= 5) throw new Error('too many redirects');
+    u = await safeUrl(new URL(next, u).href);
+  }
   if (!r.ok) throw new Error(`page returned ${r.status}`);
   const type = r.headers.get('content-type') || '';
   const raw = await readCapped(r);
   if (!/html|text|json|xml/.test(type)) return { text: '', links: [], hash: hash(raw), note: `not a web page (${type})` };
   const html = raw.toString('utf8');
   const text = htmlToText(html).slice(0, MAX_TEXT);
-  return { title: (html.match(/<title[^>]*>([^<]*)/i) || [])[1]?.trim(), text, links: links(html, r.url), hash: hash(text) };
+  return { title: (html.match(/<title[^>]*>([^<]*)/i) || [])[1]?.trim(), text, links: links(html, u), hash: hash(text) };
 }
 
 const hash = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);

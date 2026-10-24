@@ -99,15 +99,27 @@ async function aiStudio(system, user) {
   };
 }
 
+// Groq's free plan allows 8,000 tokens a minute per model, counting the reply room too, so a long page is cut to fit.
+// Tokens are guessed from bytes (about 3 per token, on the safe side for Urdu); the page text comes first, the link list last.
+const GROQ_INPUT_TOKENS = 5200;
+function fitForGroq(system, user) {
+  const room = (GROQ_INPUT_TOKENS - Buffer.byteLength(system) / 3) * 3;
+  if (Buffer.byteLength(user) <= room) return user;
+  let cut = user.slice(0, Math.floor(room / 2));
+  for (let step = 4000; step >= 50; step = Math.floor(step / 2)) while (Buffer.byteLength(user.slice(0, cut.length + step)) <= room) cut = user.slice(0, cut.length + step);
+  return `${cut}\n[cut short here to fit]`;
+}
+
 // Groq speaks the OpenAI chat format. Free plan, no card: the worst a busy day can do is hit its daily limit.
 async function groq(system, user) {
+  user = fitForGroq(system, user);
   const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
     body: JSON.stringify({
       model: GROQ_MODEL,
       temperature: 0.1,
-      max_completion_tokens: 2048,
+      max_completion_tokens: 1500,
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     }),

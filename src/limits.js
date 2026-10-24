@@ -24,10 +24,10 @@ export class CapReached extends Error {
   name = 'CapReached';
 }
 
-// True once background checks have used their share of today's AI calls.
+// True once background checks have used their share of today's AI calls or searches.
 export async function tickBudgetUsed() {
   const day = new Date().toISOString().slice(0, 10);
-  for (const s of ['gemma', 'groq']) if ((await peek(`${s}:${day}`)) >= CAPS.perDay[s] * CAPS.tickShare) return true;
+  for (const s of ['gemma', 'groq', 'search']) if ((await peek(`${s}:${day}`)) >= CAPS.perDay[s] * CAPS.tickShare) return true;
   return false;
 }
 

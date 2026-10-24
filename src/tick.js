@@ -18,6 +18,12 @@ export async function runWatch(w, now = new Date()) {
   if (again) c.done = false;
   if (c.status === 'happened' && !again) patch.status = 'happened';
   if (c.done || tooOld) Object.assign(patch, { active: false, status: c.done ? 'happened' : 'stopped' });
+  // Five real looks in a row that found nothing about it: the link or the wording is wrong, so stop instead of checking for 45 days.
+  const read = [...(w.checks || []), c].filter((x) => !x.skipped && x.status !== 'error');
+  if (read.length >= 5 && read.slice(-5).every((x) => x.onTopic === false)) {
+    Object.assign(patch, { active: false, status: 'stopped' });
+    c.summary = `Stopped: 5 checks in a row found nothing about this. Try a different link, or reword it. (${c.summary})`.slice(0, 400);
+  }
   if (c.files?.length) patch.files = [...(w.files || []), ...c.files.map((f) => ({ ...f, foundAt: c.at, saved: false }))];
   if (c.status !== 'nothing' || c.first) c.notified = await notify(w, c);
   await recordCheck(w._id, c, patch);

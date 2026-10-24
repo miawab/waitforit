@@ -18,6 +18,7 @@ Reply with JSON only, no markdown:
  "expected_at": the exact moment it is due, ONLY if the page or the person gives a time of day ("results at 3 PM on Nov 3", "13:29"), as "YYYY-MM-DDTHH:MM+05:00" (use Pakistan time, +05:00, unless the page says another zone); otherwise null,
  "next_check_hours": a number,
  "done": true or false,
+ "on_topic": true if the page or results are about what they are waiting for at all (even with no news yet), false if they are about something else,
  "files": [{"href": a link copied exactly from the LINKS list, "name": short file name}]}
 
 What the statuses mean:
@@ -40,7 +41,34 @@ Rules:
 - "files" only if they asked you to save or download something and a matching file link is in LINKS. Never invent links.
 - Plain words, for someone who is not technical.`;
 
-// Once, when a watch without a link is added: turn the person's sentence into a short Google query.
+// Once, before a watch is saved: is this something real that could show up on a page or in the news?
+// One cheap call, so nonsense never costs a search or sits in the list for 45 days.
+export async function understand(ask, lang, hasUrl) {
+  const language = lang === 'ur' ? 'Urdu (Urdu script)' : 'simple English';
+  const { json } = await askJson(
+    `A person typed what they want you to wait for. Decide if it is something you can actually watch for.
+Reply with JSON only: {"verdict": "ok" | "nonsense" | "vague" | "private", "why": one short friendly sentence in ${language}, "query": a short Google search query (3 to 6 words, no quotes) that would find news of it, or null}
+- "ok": a real event or change that a web page${hasUrl ? ' (they gave the link, so the page fills in what they mean)' : ' or the news'} could show: results announced, a release, a price change, a date posted. Be generous: typos, short wording, Roman Urdu ("petrol ki qeemat kam ho jaye") and any language are all fine. If you can write a sensible search query for it, it is "ok". No date is needed.
+- "nonsense": random letters, a joke, a test, or words that don't describe any event.
+- "vague": ONLY when you cannot even guess what to search for ("the thing happens", "news", "it"). In "why", say what detail would help.
+- "private": only the person could know it (a friend texting them, their own mood, a parcel with no tracking link).
+For "ok", "why" can be empty.
+Examples:
+"nust reslts annouced" -> ok, query "NUST results announced"
+"petrol ki qeemat kam ho jaye" -> ok (Roman Urdu: petrol price goes down), query "Pakistan petrol price cut"
+"GTA 6 comes out" -> ok, query "GTA 6 release date"
+"the price drops" with no link -> vague (price of what?)
+"asdf", "test", "hello" -> nonsense
+"my friend replies to me" -> private`,
+    ask,
+  );
+  let verdict = ['ok', 'nonsense', 'vague', 'private'].includes(json.verdict) ? json.verdict : 'ok';
+  // With a link, the page says what "the price" or "the results" means: only plain nonsense is turned away.
+  if (hasUrl && verdict !== 'nonsense') verdict = 'ok';
+  return { ok: verdict === 'ok', verdict, why: String(json.why || '').slice(0, 200), query: String(json.query || ask).slice(0, 100) };
+}
+
+// Once, when a watch without a link is added from the terminal: turn the person's sentence into a short Google query.
 export async function searchQueryFor(ask) {
   const { json } = await askJson(
     'Turn what the person is waiting for into a short Google search query (3 to 6 words, no quotes, no dates unless they matter) that would find news of it. Reply with JSON only: {"query": "..."}',
@@ -54,6 +82,14 @@ export async function checkWatch(watch, now = new Date(), page = null) {
   let source;
   if (watch.url) {
     page ||= await readPage(watch.url);
+    // Some pages draw everything with JavaScript (live clocks, many apps), so a plain fetch sees almost nothing.
+    if (!watch.checks?.length && (page.text || '').length < 150) {
+      const e = new Error(page.note || 'page has almost no text');
+      e.userMessage = page.note
+        ? "That link isn't a web page I can read. Try another link, or leave it empty and I'll search the news."
+        : "I can't read that page: it builds itself with JavaScript, so I see almost no text. Try another link, or leave it empty and I'll search the news.";
+      throw e;
+    }
     if (watch.lastHash && page.hash === watch.lastHash) {
       // Same page as last time: nothing could have changed, so don't wake Gemma.
       const hours = watch.lastInterval || 12;
@@ -99,6 +135,7 @@ ${source.prompt}`;
     expected,
     expectedAt: at ? at.toISOString() : null,
     done: Boolean(json.done),
+    onTopic: json.on_topic !== false,
     files: (Array.isArray(json.files) ? json.files : []).filter((f) => known.has(f?.href)).slice(0, 5),
     interval: hours,
     nextCheckAt: nextLook(watch, now, hours, at, earliest),

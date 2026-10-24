@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { addWatch, getWatch, listWatches, countActive, updateWatch, removeWatch, bump, getPerson, setPerson, getVoice } from './store.js';
-import { searchQueryFor } from './agent.js';
+import { understand } from './agent.js';
 import { runWatch, tick, useTimers } from './tick.js';
 import { safeUrl } from './page.js';
 import { CAPS, CapReached } from './limits.js';
@@ -22,20 +22,29 @@ const send = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
+class BadRequest extends Error {}
+
 async function body(req) {
   let s = '';
   for await (const c of req) {
     s += c;
-    if (s.length > 10_000) throw new Error('too big');
+    if (s.length > 10_000) throw new BadRequest('too big');
   }
-  return s ? JSON.parse(s) : {};
+  try {
+    return s ? JSON.parse(s) : {};
+  } catch {
+    throw new BadRequest('that request was not valid JSON');
+  }
 }
 
 const ownerOf = (req) => {
   const o = String(req.headers['x-owner'] || '');
   return /^[a-z0-9-]{16,40}$/.test(o) ? o : null;
 };
-const ipOf = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+// Render sits behind Cloudflare, which sets the real visitor address. The first X-Forwarded-For entry
+// is whatever the visitor sent, so it could be faked to dodge the per-address limit; the last one is added by the proxy.
+const ipOf = (req) =>
+  String(req.headers['cf-connecting-ip'] || req.headers['true-client-ip'] || String(req.headers['x-forwarded-for'] || '').split(',').pop() || req.socket.remoteAddress || '').trim();
 const today = () => new Date().toISOString().slice(0, 10);
 
 // What the page needs to show a watch (never the raw page hash or other people's data).
@@ -72,11 +81,18 @@ async function api(req, res, path) {
     }
     if ((await countActive(owner)) >= CAPS.watchesPerPerson) return send(res, 429, { error: `you can wait for ${CAPS.watchesPerPerson} things at once. Stop one first.` });
     if ((await countActive()) >= CAPS.watchesTotal) return send(res, 429, { error: 'the site is full right now, try tomorrow' });
+    const same = (await listWatches(owner)).find((x) => x.active && x.ask.toLowerCase() === ask.toLowerCase() && (x.url || null) === url);
+    if (same) return send(res, 409, { error: "you're already waiting for that one" });
     if ((await bump(`adds:${ipOf(req)}:${today()}`)) > ADDS_PER_IP_PER_DAY) return send(res, 429, { error: 'too many new watches today' });
 
     let w;
     try {
-      const query = url ? null : await searchQueryFor(ask);
+      const sense = await understand(ask, b.lang, Boolean(url));
+      if (!sense.ok) {
+        const fallback = { nonsense: "I couldn't tell what you're waiting for.", vague: 'That is a bit too vague for me to check.', private: "That's something only you would know, so I can't see it on a web page." }[sense.verdict];
+        return send(res, 422, { error: `${sense.why || fallback} Try something like "NUST results are out" or "petrol price changes in Pakistan".` });
+      }
+      const query = url ? null : sense.query;
       w = await addWatch({ owner, ask, url, query, lang: b.lang === 'ur' ? 'ur' : 'en', nextCheckAt: new Date().toISOString(), status: 'waiting' });
       // First check right away, so the person sees what it understood.
       await runWatch(w);
@@ -85,6 +101,7 @@ async function api(req, res, path) {
       console.error('add', e.message);
       if (w) await removeWatch(w._id); // a watch whose first look failed would just sit there broken
       if (e instanceof CapReached) return send(res, 429, { error: 'busy today, try tomorrow' });
+      if (e.userMessage) return send(res, 422, { error: e.userMessage });
       if (e.outage) return send(res, 503, { error: "The AI can't be reached right now (today's free quota is used up). Nothing was saved; try again later." });
       return send(res, 502, { error: `couldn't read that: ${e.message.slice(0, 120)}` });
     }
@@ -170,6 +187,7 @@ createServer(async (req, res) => {
     if (path.startsWith('/api/')) await api(req, res, path);
     else await file(res, path);
   } catch (e) {
+    if (e instanceof BadRequest) return send(res, 400, { error: e.message });
     console.error(e);
     send(res, 500, { error: 'something broke' });
   }
