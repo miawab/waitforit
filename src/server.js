@@ -12,6 +12,8 @@ import { pushOn } from './notify.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const ADDS_PER_IP_PER_DAY = 10;
+// Across everyone: each attempt costs an AI call, so many addresses (a VPN, a bot) can't eat the whole day's quota.
+const ADDS_PER_DAY = Number(process.env.CAP_ADDS_PER_DAY || 80);
 const TICK_SECRET = process.env.TICK_SECRET;
 let ticking = false;
 useTimers();
@@ -84,6 +86,7 @@ async function api(req, res, path) {
     const same = (await listWatches(owner)).find((x) => x.active && x.ask.toLowerCase() === ask.toLowerCase() && (x.url || null) === url);
     if (same) return send(res, 409, { error: "you're already waiting for that one" });
     if ((await bump(`adds:${ipOf(req)}:${today()}`)) > ADDS_PER_IP_PER_DAY) return send(res, 429, { error: 'too many new watches today' });
+    if ((await bump(`adds:all:${today()}`)) > ADDS_PER_DAY) return send(res, 429, { error: 'the site is busy today, try tomorrow' });
 
     let w;
     try {
