@@ -98,11 +98,11 @@ async function api(req, res, path) {
     try {
       const sense = practice ? { ok: true } : await understand(ask, b.lang, Boolean(url));
       if (!sense.ok) {
-        const fallback = { nonsense: "I couldn't tell what you're waiting for.", vague: 'That is a bit too vague for me to check.', private: "That's something only you would know, so I can't see it on a web page." }[sense.verdict];
-        return send(res, 422, { error: `${sense.why || fallback} Try something like "NUST results are out" or "petrol price changes in Pakistan".` });
+        const fallback = { nonsense: "I couldn't tell what you're waiting for.", vague: 'That is a bit too vague for me to check.', private: "That's something only you would know, so I can't see it on a web page.", alarm: "That's a job for an alarm: set one on your phone." }[sense.verdict];
+        return send(res, 422, { error: `${sense.verdict === 'alarm' ? fallback : sense.why || fallback} I'm for things a web page or the news will show. Try something like "NUST results are out" or "petrol price changes in Pakistan".` });
       }
       const query = url ? null : sense.query;
-      w = await addWatch({ owner, ask, url, query, lang: b.lang === 'ur' ? 'ur' : 'en', nextCheckAt: new Date().toISOString(), status: 'waiting' });
+      w = await addWatch({ owner, ask, url, query, lang: b.lang === 'ur' ? 'ur' : 'en', nextCheckAt: new Date(Date.now() + 15 * 60e3).toISOString(), status: 'waiting' });
       // First check right away, so the person sees what it understood.
       await runWatch(w);
       return send(res, 200, view(await getWatch(w._id)));

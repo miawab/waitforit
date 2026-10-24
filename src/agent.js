@@ -15,7 +15,7 @@ Reply with JSON only, no markdown:
  "evidence": for "happened", "changed" or "delayed": a few words copied exactly from the page or results that show it, in the page's own language; otherwise null,
  "earliest": "YYYY-MM-DD", the FIRST day it could happen (for "the week of Oct 19" that is Oct 19), or null,
  "expected": "YYYY-MM-DD", the LAST day it is likely to happen by (for "the week of Oct 19" that is the Sunday of that week), or null,
- "expected_at": the exact moment it is due, ONLY if the page or the person gives a time of day ("results at 3 PM on Nov 3", "13:29"), as "YYYY-MM-DDTHH:MM+05:00" (use Pakistan time, +05:00, unless the page says another zone); otherwise null,
+ "expected_at": the exact moment it is due, ONLY if the page OR what they are waiting for gives a time of day ("results at 3 PM on Nov 3", "posted at 14:40"), as "YYYY-MM-DDTHH:MM+05:00" (use Pakistan time, +05:00, unless the page says another zone); otherwise null,
  "next_check_hours": a number,
  "done": true or false,
  "on_topic": true if the page or results are about what they are waiting for at all (even with no news yet), false if they are about something else,
@@ -47,10 +47,11 @@ export async function understand(ask, lang, hasUrl) {
   const language = lang === 'ur' ? 'Urdu (Urdu script)' : 'simple English';
   const { json } = await askJson(
     `A person typed what they want you to wait for. Decide if it is something you can actually watch for.
-Reply with JSON only: {"verdict": "ok" | "nonsense" | "vague" | "private", "why": one short friendly sentence in ${language}, "query": a short Google search query (3 to 6 words, no quotes) that would find news of it, or null}
+Reply with JSON only: {"verdict": "ok" | "nonsense" | "vague" | "private" | "alarm", "why": one short friendly sentence in ${language}, "query": a short Google search query (3 to 6 words, no quotes) that would find news of it, or null}
 - "ok": a real event or change that a web page${hasUrl ? ' (they gave the link, so the page fills in what they mean)' : ' or the news'} could show: results announced, a release, a price change, a date posted. Be generous: typos, short wording, Roman Urdu ("petrol ki qeemat kam ho jaye") and any language are all fine. If you can write a sensible search query for it, it is "ok". No date is needed.
 - "nonsense": random letters, a joke, a test, or words that don't describe any event.
 - "vague": ONLY when you cannot even guess what to search for ("the thing happens", "news", "it"). In "why", say what detail would help.
+- "alarm": just a clock time with no event ("clock hits 14:40", "when it's 5 pm"). A phone alarm does that better.
 - "private": only the person could know it (a friend texting them, their own mood, a parcel with no tracking link).
 For "ok", "why" can be empty.
 Examples:
@@ -59,12 +60,14 @@ Examples:
 "GTA 6 comes out" -> ok, query "GTA 6 release date"
 "the price drops" with no link -> vague (price of what?)
 "asdf", "test", "hello" -> nonsense
-"my friend replies to me" -> private`,
+"my friend replies to me" -> private
+"clock hitting 14:40" -> alarm
+"results are posted at 3 PM" -> ok, query "results posted"`,
     ask,
   );
-  let verdict = ['ok', 'nonsense', 'vague', 'private'].includes(json.verdict) ? json.verdict : 'ok';
-  // With a link, the page says what "the price" or "the results" means: only plain nonsense is turned away.
-  if (hasUrl && verdict !== 'nonsense') verdict = 'ok';
+  let verdict = ['ok', 'nonsense', 'vague', 'private', 'alarm'].includes(json.verdict) ? json.verdict : 'ok';
+  // With a link, the page says what "the price" or "the results" means: only nonsense and plain alarms are turned away.
+  if (hasUrl && !['nonsense', 'alarm'].includes(verdict)) verdict = 'ok';
   return { ok: verdict === 'ok', verdict, why: String(json.why || '').slice(0, 200), query: String(json.query || ask).slice(0, 100) };
 }
 
@@ -118,7 +121,8 @@ ${source.prompt}`;
   const expected = /^\d{4}-\d{2}-\d{2}$/.test(json.expected || '') ? json.expected : null;
   const hours = Number(json.next_check_hours) || 12;
   const earliest = /^\d{4}-\d{2}-\d{2}$/.test(json.earliest || '') ? json.earliest : expected;
-  const at = dueAt(json.expected_at);
+  // If the model missed a time the person typed themselves ("at 3 PM", "14:40"), the code picks it up.
+  const at = dueAt(json.expected_at) || timeInAsk(watch.ask, now);
   // The model suggests, the code checks: news only goes out if Gemma can point at the words that show it.
   let status = ['happened', 'changed', 'delayed', 'nothing'].includes(json.status) ? json.status : 'nothing';
   // Sometimes it gives a list of quotes instead of one; one real quote is enough.
@@ -157,6 +161,20 @@ export function quoted(quote, text) {
   if (!pieces.length || !pieces.every(enough)) return false;
   // Second try without any spaces, for quotes like "Rs381.14" when the page says "Rs 381.14".
   return pieces.every((q) => ` ${t} `.includes(` ${q} `) || (q.length >= 12 && t.replace(/ /g, '').includes(q.replace(/ /g, ''))));
+}
+
+// "14:40", "3 PM", "3:30pm" in what they typed -> the next time it's that o'clock in Pakistan (within a day).
+export function timeInAsk(ask, now = new Date()) {
+  const m = String(ask).match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+  if (!m || (!m[2] && !m[3])) return null; // a bare number ("Python 3") isn't a time
+  let h = Number(m[1]);
+  const min = Number(m[2] || 0);
+  if (m[3]) h = (h % 12) + (/pm/i.test(m[3]) ? 12 : 0);
+  if (h > 23 || min > 59) return null;
+  const day = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+  let t = new Date(`${day}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00+05:00`);
+  if (t < now - 3600e3) t = new Date(t.getTime() + 86400e3); // already well past today: tomorrow
+  return t;
 }
 
 function dueAt(s) {
