@@ -133,8 +133,18 @@ async function setupPush(key) {
   if (!key || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
   const reg = await navigator.serviceWorker.register('sw.js');
   const existing = await reg.pushManager.getSubscription();
+  // Already on: offer a test, since a blocked Windows/phone setting hides notifications without any error here.
+  const test = async (sub) => {
+    const r = await api('/api/push', { method: 'POST', body: JSON.stringify({ ...sub.toJSON(), test: true }) });
+    $('#pushok').hidden = false;
+    $('#pushok').textContent = r.sent
+      ? "Sent a test notification. Didn't see it? Check that notifications for your browser are on in your computer's or phone's settings, and Do Not Disturb is off."
+      : "Couldn't send a test notification. Try turning notifications off and on again for this site.";
+  };
   if (existing && Notification.permission === 'granted') {
     await api('/api/push', { method: 'POST', body: JSON.stringify(existing) });
+    $('#pushtest').hidden = false;
+    $('#pushtest').onclick = () => test(existing).catch((e) => ($('#pushok').textContent = e.message));
     return;
   }
   $('#tg').hidden = false;
@@ -142,8 +152,10 @@ async function setupPush(key) {
     try {
       if ((await Notification.requestPermission()) !== 'granted') throw new Error('Notifications are blocked for this site in your browser settings.');
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-      await api('/api/push', { method: 'POST', body: JSON.stringify(sub) });
+      await test(sub);
       $('#tg').hidden = true;
+      $('#pushtest').hidden = false;
+      $('#pushtest').onclick = () => test(sub).catch((e) => ($('#pushok').textContent = e.message));
     } catch (e) {
       $('#pushmsg').textContent = e.message;
     }

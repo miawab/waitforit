@@ -45,6 +45,19 @@ export async function notify(watch, check) {
   return alive.length ? 'push' : 'printed';
 }
 
+// Sent once, right when someone turns notifications on, so they know at once whether their browser shows them.
+export async function confirmPush(sub) {
+  if (!pushOn()) return false;
+  const payload = JSON.stringify({ title: '✅ Notifications are on', body: "This is how you'll hear when something you're waiting for happens.", url: '/', tag: 'wfi-test' });
+  try {
+    await webpush.sendNotification(sub, payload, { TTL: 600 });
+    return true;
+  } catch (e) {
+    console.error('push test', e.statusCode, e.body);
+    return false;
+  }
+}
+
 async function speak(text) {
   await spend('voice');
   const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE}?output_format=mp3_44100_64`, {

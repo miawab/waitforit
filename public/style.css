@@ -112,3 +112,4 @@ footer { color: var(--muted); font-size: 0.9rem; text-align: center; margin-top:
 .practice { color: var(--muted); font-size: 0.95rem; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .practice button.ghost { padding: 4px 12px; }
 .exhead { font-size: 1.1rem; margin: 36px 0 4px; }
+.pushline { margin: 12px 0 0; text-align: center; }

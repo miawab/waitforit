@@ -10,7 +10,7 @@ import { understand } from './agent.js';
 import { runWatch, tick, useTimers } from './tick.js';
 import { safeUrl } from './page.js';
 import { CAPS, CapReached } from './limits.js';
-import { pushOn } from './notify.js';
+import { pushOn, confirmPush } from './notify.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const ADDS_PER_IP_PER_DAY = 10;
@@ -154,7 +154,7 @@ async function api(req, res, path) {
     const clean = { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } };
     const others = ((await getPerson(owner))?.push || []).filter((s) => s.endpoint !== clean.endpoint);
     await setPerson(owner, { push: [...others, clean].slice(-5) });
-    return send(res, 200, { ok: true });
+    return send(res, 200, { ok: true, sent: sub.test ? await confirmPush(clean) : undefined });
   }
 
   const voice = path.match(/^\/api\/watches\/([a-f0-9-]{36})\/voice$/);
