@@ -14,6 +14,7 @@ import { pushOn } from './notify.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const ADDS_PER_IP_PER_DAY = 10;
+const PRACTICE_PER_IP_PER_DAY = 6;
 // Across everyone: each attempt costs an AI call, so many addresses (a VPN, a bot) can't eat the whole day's quota.
 const ADDS_PER_DAY = Number(process.env.CAP_ADDS_PER_DAY || 80);
 const TICK_SECRET = process.env.TICK_SECRET;
@@ -87,12 +88,15 @@ async function api(req, res, path) {
     if ((await countActive()) >= CAPS.watchesTotal) return send(res, 429, { error: 'the site is full right now, try tomorrow' });
     const same = (await listWatches(owner)).find((x) => x.active && x.ask.toLowerCase() === ask.toLowerCase() && (x.url || null) === url);
     if (same) return send(res, 409, { error: "you're already waiting for that one" });
-    if ((await bump(`adds:${ipOf(req)}:${today()}`)) > ADDS_PER_IP_PER_DAY) return send(res, 429, { error: 'too many new watches today' });
+    // Practice watches (a page on this site, a few minutes long) have their own small allowance, so trying them doesn't use up real ones.
+    const practice = url && isPractice(new URL(url));
+    if (practice ? (await bump(`practice:${ipOf(req)}:${today()}`)) > PRACTICE_PER_IP_PER_DAY : (await bump(`adds:${ipOf(req)}:${today()}`)) > ADDS_PER_IP_PER_DAY)
+      return send(res, 429, { error: practice ? "that's enough practice for today; try a real one" : 'too many new watches today' });
     if ((await bump(`adds:all:${today()}`)) > ADDS_PER_DAY) return send(res, 429, { error: 'the site is busy today, try tomorrow' });
 
     let w;
     try {
-      const sense = await understand(ask, b.lang, Boolean(url));
+      const sense = practice ? { ok: true } : await understand(ask, b.lang, Boolean(url));
       if (!sense.ok) {
         const fallback = { nonsense: "I couldn't tell what you're waiting for.", vague: 'That is a bit too vague for me to check.', private: "That's something only you would know, so I can't see it on a web page." }[sense.verdict];
         return send(res, 422, { error: `${sense.why || fallback} Try something like "NUST results are out" or "petrol price changes in Pakistan".` });
