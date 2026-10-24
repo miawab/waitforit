@@ -31,8 +31,9 @@ export async function tick(now = new Date()) {
       log.push(`${w._id.slice(0, 8)} ${c.status}${c.skipped ? ' (skipped)' : ''}: ${c.summary}`);
     } catch (e) {
       // A cap or a broken page shouldn't stop the other watches. Try again later.
-      const retry = new Date(now.getTime() + (e.name === 'CapReached' ? 12 : 3) * 3600e3).toISOString();
-      await recordCheck(w._id, { at: now.toISOString(), status: 'error', summary: e.message.slice(0, 200) }, { nextCheckAt: retry });
+      const retry = new Date(now.getTime() + (e.name === 'CapReached' || e.outage ? 12 : 3) * 3600e3).toISOString();
+      const summary = e.outage ? "couldn't check: Gemma's quota is used up, trying again later" : e.message.slice(0, 200);
+      await recordCheck(w._id, { at: now.toISOString(), status: 'error', summary }, { nextCheckAt: retry });
       log.push(`${w._id.slice(0, 8)} error: ${e.message}`);
     }
   }

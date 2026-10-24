@@ -83,7 +83,9 @@ async function api(req, res, path) {
     } catch (e) {
       console.error('add', e.message);
       if (w) await removeWatch(w._id); // a watch whose first look failed would just sit there broken
-      return send(res, e instanceof CapReached ? 429 : 502, { error: e instanceof CapReached ? 'busy today, try tomorrow' : `couldn't read that: ${e.message}` });
+      if (e instanceof CapReached) return send(res, 429, { error: 'busy today, try tomorrow' });
+      if (e.outage) return send(res, 503, { error: "Gemma can't be reached right now (its free quota is used up). Nothing was saved; try again later." });
+      return send(res, 502, { error: `couldn't read that: ${e.message.slice(0, 120)}` });
     }
   }
 

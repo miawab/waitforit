@@ -66,6 +66,8 @@ async function aiStudio(system, user) {
   if (!r.ok) {
     const body = await r.text();
     const err = new Error(`gemma ${r.status}: ${body.slice(0, 200)}`);
+    // Out of credits, a bad key, or today's quota gone: nothing a retry fixes, and the raw Google JSON means nothing to a visitor.
+    if ([401, 402, 403].includes(r.status) || (r.status === 429 && /PerDay/i.test(body))) err.outage = true;
     // A per-minute limit says when to come back ("retryDelay": "23s"); a daily one is PerDay and won't clear soon.
     if (r.status === 429 && !/PerDay/i.test(body)) err.retryAfter = Math.min(65, Number(body.match(/"retryDelay":\s*"(\d+)/)?.[1]) || 30) + 2;
     throw err;
