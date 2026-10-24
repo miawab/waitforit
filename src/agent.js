@@ -15,7 +15,7 @@ Reply with JSON only, no markdown:
  "evidence": for "happened", "changed" or "delayed": a few words copied exactly from the page or results that show it, in the page's own language; otherwise null,
  "earliest": "YYYY-MM-DD", the FIRST day it could happen (for "the week of Oct 19" that is Oct 19), or null,
  "expected": "YYYY-MM-DD", the LAST day it is likely to happen by (for "the week of Oct 19" that is the Sunday of that week), or null,
- "expected_at": the exact moment it is due, ONLY if the page OR what they are waiting for gives a time of day ("results at 3 PM on Nov 3", "posted at 14:40"), as "YYYY-MM-DDTHH:MM+05:00" (use Pakistan time, +05:00, unless the page says another zone); otherwise null,
+ "expected_at": the exact moment it is due, ONLY if the page OR what they are waiting for gives a time of day ("results at 3 PM on Nov 3", "posted at 14:40"), as "YYYY-MM-DDTHH:MM+HH:MM" with the right UTC offset: Pakistan (+05:00) unless the page is about another place (a Tokyo clock page means Tokyo time, +09:00). If no AM/PM is given, pick the NEXT time it will be that o'clock there. Otherwise null,
  "next_check_hours": a number,
  "done": true or false,
  "on_topic": true if the page or results are about what they are waiting for at all (even with no news yet), false if they are about something else,
@@ -66,8 +66,8 @@ Examples:
     ask,
   );
   let verdict = ['ok', 'nonsense', 'vague', 'private', 'alarm'].includes(json.verdict) ? json.verdict : 'ok';
-  // With a link, the page says what "the price" or "the results" means: only nonsense and plain alarms are turned away.
-  if (hasUrl && !['nonsense', 'alarm'].includes(verdict)) verdict = 'ok';
+  // With a link, the page says what "the price" or "the results" means (and a clock page can show the time): only nonsense is turned away.
+  if (hasUrl && verdict !== 'nonsense') verdict = 'ok';
   return { ok: verdict === 'ok', verdict, why: String(json.why || '').slice(0, 200), query: String(json.query || ask).slice(0, 100) };
 }
 
@@ -172,9 +172,13 @@ export function timeInAsk(ask, now = new Date()) {
   if (m[3]) h = (h % 12) + (/pm/i.test(m[3]) ? 12 : 0);
   if (h > 23 || min > 59) return null;
   const day = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
-  let t = new Date(`${day}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00+05:00`);
-  if (t < now - 3600e3) t = new Date(t.getTime() + 86400e3); // already well past today: tomorrow
-  return t;
+  const at = (hh) => {
+    const t = new Date(`${day}T${String(hh).padStart(2, '0')}:${String(min).padStart(2, '0')}:00+05:00`);
+    return t < now - 3600e3 ? new Date(t.getTime() + 86400e3) : t; // already well past today: tomorrow
+  };
+  // "7:03" with no AM/PM could be either: take whichever comes first.
+  const options = !m[3] && h < 12 ? [at(h), at(h + 12)] : [at(h)];
+  return options.sort((a, b) => a - b)[0];
 }
 
 function dueAt(s) {
