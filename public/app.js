@@ -112,7 +112,7 @@ $('#add').addEventListener('submit', async (e) => {
 
 $('#list').addEventListener('click', async (e) => {
   const { play, stop, remove } = e.target.dataset || {};
-  if (play) return playVoice(play);
+  if (play) return playVoice(play, e.target);
   if (stop) {
     await api(`/api/watches/${stop}/stop`, { method: 'POST' });
     return load();
@@ -165,9 +165,15 @@ async function setupPush(key) {
 api('/api/config').then((c) => setupPush(c.push)).catch(() => {});
 
 // Opened from a notification: jump to that watch and offer its voice note.
-async function playVoice(id) {
-  const r = await fetch(`/api/watches/${id}/voice`, { headers: { 'x-owner': owner } });
-  if (!r.ok) return;
+// The first play makes the note (a few seconds); after that it's saved.
+async function playVoice(id, btn) {
+  const label = btn?.textContent;
+  if (btn) (btn.disabled = true), (btn.textContent = 'Making voice note…');
+  const r = await fetch(`/api/watches/${id}/voice`, { headers: { 'x-owner': owner } }).finally(() => btn && ((btn.disabled = false), (btn.textContent = label)));
+  if (!r.ok) {
+    if (btn) btn.textContent = (await r.json().catch(() => ({}))).error || 'No voice note';
+    return;
+  }
   const audio = new Audio(URL.createObjectURL(await r.blob()));
   audio.play().catch(() => {});
   return audio;

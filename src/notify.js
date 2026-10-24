@@ -1,7 +1,7 @@
 // Tells the person: a browser notification, plus a voice note (ElevenLabs) when something really happened.
 // No push keys or no subscription -> it just prints, which is enough to try it on one PC.
 import webpush from 'web-push';
-import { spend, CapReached } from './limits.js';
+import { spend, CapReached, voiceOpen } from './limits.js';
 import { getPerson, setPerson, saveVoice, getVoice } from './store.js';
 import { isPractice } from './practice.js';
 
@@ -16,14 +16,8 @@ export async function notify(watch, check) {
   const title = `${ICON[check.status] || '👀'} ${watch.ask}`;
   const body = `${check.summary}${check.details?.length ? '\n' + check.details.join('\n') : ''}`;
 
-  if (EL && (check.status === 'happened' || check.status === 'delayed')) {
-    try {
-      await saveVoice(watch._id, await voiceFor(watch, check));
-      check.voice = true;
-    } catch (e) {
-      if (!(e instanceof CapReached)) console.error('voice', e.message);
-    }
-  }
+  // The voice note isn't made yet: only when someone presses play (or taps the notification), so unheard notes cost nothing.
+  if (EL && (check.status === 'happened' || check.status === 'delayed') && (practiceWatch(watch) || voiceOpen())) check.voice = true;
 
   const person = await getPerson(watch.owner);
   const subs = person?.push || [];
@@ -59,14 +53,29 @@ export async function confirmPush(sub) {
   }
 }
 
+function practiceWatch(watch) {
+  try {
+    return isPractice(new URL(watch.url));
+  } catch {
+    return false;
+  }
+}
+
+// The voice note for a watch's latest news, made on first play and then kept. Null when there is none to make.
+export async function voiceNote(watch) {
+  const saved = await getVoice(watch._id);
+  if (saved) return Buffer.from(saved);
+  const check = (watch.checks || []).findLast((c) => c.voice);
+  if (!EL || !check || !(practiceWatch(watch) || voiceOpen())) return null;
+  const audio = await voiceFor(watch, check);
+  await saveVoice(watch._id, audio);
+  return audio;
+}
+
 // Practice watches all say the same thing, so one saved voice note per language is reused: trying it costs no credits.
 const PRACTICE_LINE = { en: 'The doors are open.', ur: 'دروازے کھل گئے ہیں۔' };
 async function voiceFor(watch, check) {
-  let practice = false;
-  try {
-    practice = isPractice(new URL(watch.url));
-  } catch {}
-  if (!practice) return speak(check.summary);
+  if (!practiceWatch(watch)) return speak(check.summary);
   const lang = watch.lang === 'ur' ? 'ur' : 'en';
   const saved = await getVoice(`practice-${lang}`);
   if (saved) return Buffer.from(saved);

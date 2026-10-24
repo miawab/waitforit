@@ -10,7 +10,7 @@ import { understand } from './agent.js';
 import { runWatch, tick, useTimers } from './tick.js';
 import { safeUrl } from './page.js';
 import { CAPS, CapReached } from './limits.js';
-import { pushOn, confirmPush } from './notify.js';
+import { pushOn, confirmPush, voiceNote } from './notify.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const ADDS_PER_IP_PER_DAY = 10;
@@ -160,7 +160,14 @@ async function api(req, res, path) {
   const voice = path.match(/^\/api\/watches\/([a-f0-9-]{36})\/voice$/);
   if (req.method === 'GET' && voice) {
     const w = await getWatch(voice[1]);
-    const audio = w && w.owner === owner ? await getVoice(w._id) : null;
+    if (!w || w.owner !== owner) return send(res, 404, { error: 'not found' });
+    let audio;
+    try {
+      audio = await voiceNote(w);
+    } catch (e) {
+      if (e instanceof CapReached) return send(res, 429, { error: 'no more voice notes today' });
+      throw e;
+    }
     if (!audio) return send(res, 404, { error: 'no voice note' });
     res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, max-age=3600' });
     return res.end(Buffer.from(audio));

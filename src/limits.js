@@ -20,6 +20,15 @@ export const CAPS = {
   },
 };
 
+// Voice notes (the one plan that runs out for the month) are only made inside these windows: "start/end,start/end" in UTC.
+// Default: from each submission deadline to the end of its judging. Practice voice notes are saved once and always play.
+const VOICE_WINDOWS = process.env.VOICE_WINDOWS || '2026-10-26T07:00Z/2026-11-02T00:00Z,2026-11-20T22:00Z/2026-11-26T00:00Z';
+export const voiceOpen = (now = new Date()) =>
+  VOICE_WINDOWS.split(',').some((w) => {
+    const [a, b] = w.split('/').map((s) => new Date(s.trim()));
+    return now >= a && now < b;
+  });
+
 export class CapReached extends Error {
   name = 'CapReached';
 }
