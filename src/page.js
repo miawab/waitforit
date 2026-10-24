@@ -2,11 +2,14 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { createHash } from 'node:crypto';
+import { isPractice, practicePage } from './practice.js';
 
 const MAX_BYTES = 2_000_000;
 const MAX_TEXT = 14_000;
 
 export async function readPage(url) {
+  const p = isPractice(new URL(url)) && practicePage(new URL(url));
+  if (p) return { title: p.title, text: p.text, links: [], hash: hash(p.text) };
   // Follow redirects by hand: each hop must pass the same "public address only" check as the first link.
   let u = await safeUrl(url);
   let r;
@@ -79,6 +82,7 @@ export async function safeUrl(url) {
     throw new Error('not a valid link');
   }
   if (!/^https?:$/.test(u.protocol)) throw new Error('only http and https links');
+  if (isPractice(u)) return u.href;
   const host = u.hostname.replace(/^\[|\]$/g, '');
   const ips = isIP(host) ? [host] : (await lookup(host, { all: true })).map((a) => a.address);
   if (ips.some(isPrivate)) throw new Error('that address is not public');

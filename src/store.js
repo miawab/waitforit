@@ -49,6 +49,13 @@ export async function getWatch(id) {
   return URI ? d.collection('watches').findOne({ _id: id }) : d.watches.find((w) => w._id === id) || null;
 }
 
+// Watches marked example: true (set by hand in the database) are shown to every visitor, read-only.
+export async function listExamples() {
+  const d = await open();
+  if (URI) return d.collection('watches').find({ example: true }).sort({ createdAt: -1 }).limit(4).toArray();
+  return d.watches.filter((w) => w.example).reverse().slice(0, 4);
+}
+
 export async function listWatches(owner) {
   const d = await open();
   if (URI) return d.collection('watches').find({ owner }).sort({ createdAt: -1 }).toArray();

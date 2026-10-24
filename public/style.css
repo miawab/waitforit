@@ -109,3 +109,6 @@ details.hist ol { padding-left: 20px; margin: 8px 0 0; }
 details.hist li { margin-bottom: 6px; }
 .files a { color: var(--accent); }
 footer { color: var(--muted); font-size: 0.9rem; text-align: center; margin-top: 40px; }
+.practice { color: var(--muted); font-size: 0.95rem; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.practice button.ghost { padding: 4px 12px; }
+.exhead { font-size: 1.1rem; margin: 36px 0 4px; }

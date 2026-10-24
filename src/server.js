@@ -3,6 +3,8 @@ import './env.js';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { listExamples } from './store.js';
+import { isPractice, practicePage } from './practice.js';
 import { addWatch, getWatch, listWatches, countActive, updateWatch, removeWatch, bump, getPerson, setPerson, getVoice } from './store.js';
 import { understand } from './agent.js';
 import { runWatch, tick, useTimers } from './tick.js';
@@ -62,7 +64,7 @@ const view = (w) => ({
   nextCheckAt: w.active ? w.nextCheckAt : null,
   createdAt: w.createdAt,
   files: w.files || [],
-  checks: (w.checks || []).map(({ at, status, summary, details, skipped, voice }) => ({ at, status, summary, details, skipped, voice })),
+  checks: (w.checks || []).map(({ at, status, summary, details, skipped, voice, model }) => ({ at, status, summary, details, skipped, voice, model })),
 });
 
 async function api(req, res, path) {
@@ -110,6 +112,10 @@ async function api(req, res, path) {
     }
   }
 
+  if (req.method === 'GET' && path === '/api/examples') {
+    return send(res, 200, (await listExamples()).map((w) => ({ ...view(w), example: true })));
+  }
+
   if (req.method === 'GET' && path === '/api/watches') {
     if (!owner) return send(res, 200, []);
     return send(res, 200, (await listWatches(owner)).map(view));
@@ -118,7 +124,7 @@ async function api(req, res, path) {
   const stop = path.match(/^\/api\/watches\/([a-f0-9-]{36})\/stop$/);
   if (req.method === 'POST' && stop) {
     const w = await getWatch(stop[1]);
-    if (!w || w.owner !== owner) return send(res, 404, { error: 'not found' });
+    if (!w || w.owner !== owner || w.example) return send(res, 404, { error: 'not found' });
     await updateWatch(w._id, { active: false, status: w.status === 'happened' ? 'happened' : 'stopped' });
     return send(res, 200, { ok: true });
   }
@@ -127,7 +133,7 @@ async function api(req, res, path) {
   const remove = path.match(/^\/api\/watches\/([a-f0-9-]{36})\/remove$/);
   if (req.method === 'POST' && remove) {
     const w = await getWatch(remove[1]);
-    if (!w || w.owner !== owner) return send(res, 404, { error: 'not found' });
+    if (!w || w.owner !== owner || w.example) return send(res, 404, { error: 'not found' });
     await removeWatch(w._id);
     return send(res, 200, { ok: true });
   }
@@ -172,7 +178,13 @@ async function api(req, res, path) {
   return send(res, 404, { error: 'not found' });
 }
 
-async function file(res, path) {
+async function file(res, path, req) {
+  if (path === '/practice') {
+    const u = new URL(req.url, `https://${req.headers.host}`);
+    const p = practicePage(u);
+    res.writeHead(p ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(p ? p.html : 'This practice link has expired.');
+  }
   const rel = normalize(path === '/' ? '/index.html' : path).replace(/^([/\\])+/, '');
   if (rel.includes('..')) return send(res, 404, { error: 'not found' });
   try {
@@ -188,7 +200,7 @@ createServer(async (req, res) => {
   const path = new URL(req.url, 'http://x').pathname;
   try {
     if (path.startsWith('/api/')) await api(req, res, path);
-    else await file(res, path);
+    else await file(res, path, req);
   } catch (e) {
     if (e instanceof BadRequest) return send(res, 400, { error: e.message });
     console.error(e);

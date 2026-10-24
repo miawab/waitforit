@@ -16,18 +16,20 @@ const api = async (path, opts = {}) => {
   return data;
 };
 
+const MODEL = (m) => (!m ? '' : /gemma/i.test(m) ? 'Gemma' : `${m.split('/').pop()} on Groq`);
 const LABEL = { happened: 'Happened', changed: 'News', delayed: 'Delayed', nothing: 'Waiting', waiting: 'Waiting', stopped: 'Stopped', error: 'Error' };
 
 function when(iso) {
   const ms = new Date(iso) - Date.now();
+  const m = Math.round(Math.abs(ms) / 60e3);
   const h = Math.round(Math.abs(ms) / 3600e3);
-  const t = h < 1 ? 'under an hour' : h < 48 ? `${h} hour${h === 1 ? '' : 's'}` : `${Math.round(h / 24)} days`;
+  const t = m < 1 ? 'under a minute' : m < 60 ? `${m} min` : h < 48 ? `${h} hour${h === 1 ? '' : 's'}` : `${Math.round(h / 24)} days`;
   return ms >= 0 ? `in ${t}` : `${t} ago`;
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-function card(w) {
+function card(w, readOnly = false) {
   const real = w.checks.filter((c) => c.status !== 'error');
   const latest = [...real].reverse().find((c) => c.status !== 'nothing') || real.at(-1);
   const status = w.active ? (latest?.status === 'nothing' || !latest ? 'waiting' : latest.status) : w.status;
@@ -44,12 +46,12 @@ function card(w) {
     ${w.files.length ? `<p class="files">📎 ${w.files.map((f) => `<a href="${esc(f.href)}" target="_blank" rel="noopener">${esc(f.name || 'file')}</a>`).join(', ')}</p>` : ''}
     <div class="meta">
       <span>${real.length} check${real.length === 1 ? '' : 's'} (${gemmaRuns} read by the AI)${w.active && w.nextCheckAt ? `, next ${when(w.nextCheckAt)}` : ''}${w.expected ? `, expected by ${w.expected}` : ''}</span>
-      <span>${w.checks.some((c) => c.voice) ? `<button class="ghost" data-play="${w.id}">▶ Voice note</button> ` : ''}${w.active ? `<button class="ghost" data-stop="${w.id}">Stop</button> ` : ''}<button class="ghost" data-remove="${w.id}">Remove</button></span>
+      <span>${readOnly ? '' : `${w.checks.some((c) => c.voice) ? `<button class="ghost" data-play="${w.id}">▶ Voice note</button> ` : ''}${w.active ? `<button class="ghost" data-stop="${w.id}">Stop</button> ` : ''}<button class="ghost" data-remove="${w.id}">Remove</button>`}</span>
     </div>
     <details class="hist"><summary>Every check</summary><ol>${w.checks
       .slice()
       .reverse()
-      .map((c) => `<li><b>${LABEL[c.status] || c.status}</b> ${when(c.at)}${c.skipped ? ' (page unchanged, Gemma not needed)' : ''}: <span${dir}>${esc(c.summary)}</span></li>`)
+      .map((c) => `<li><b>${LABEL[c.status] || c.status}</b> ${when(c.at)}${c.skipped ? ' (page unchanged, no AI needed)' : c.model ? ` (${esc(MODEL(c.model))})` : ''}: <span${dir}>${esc(c.summary)}</span></li>`)
       .join('')}</ol></details>`;
   return li;
 }
@@ -65,12 +67,30 @@ function payoff(watches) {
   $('#payoff').innerHTML = `Refreshing every hour you're awake, you'd have checked <b>${you}</b> times. It checked <b>${it}</b>. You checked <b>0</b>.`;
 }
 
+let refresh;
 async function load() {
-  const watches = await api('/api/watches');
-  $('#list').replaceChildren(...watches.map(card));
+  const [watches, examples] = await Promise.all([api('/api/watches'), api('/api/examples').catch(() => [])]);
+  $('#list').replaceChildren(...watches.map((w) => card(w)));
   $('#empty').hidden = watches.length > 0;
+  $('#examples').hidden = !examples.length;
+  $('#exlist').replaceChildren(...examples.map((w) => card(w, true)));
   payoff(watches);
+  // Keep the list fresh while the page is open: every 15 seconds when a check is due soon, else every 2 minutes.
+  const soon = watches.some((w) => w.active && w.nextCheckAt && new Date(w.nextCheckAt) - Date.now() < 15 * 60e3);
+  clearTimeout(refresh);
+  refresh = setTimeout(() => document.visibilityState === 'visible' ? load().catch(() => {}) : null, soon ? 15e3 : 120e3);
 }
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && load().catch(() => {}));
+
+// Practice: a page on this site whose doors open in a few minutes, to see the whole loop without waiting days.
+$('#practice').addEventListener('click', (e) => {
+  const mins = Number(e.target.dataset?.mins);
+  if (!mins) return;
+  const f = $('#add');
+  f.ask.value = 'the doors open';
+  f.url.value = `${location.origin}/practice?at=${Date.now() + mins * 60e3}`;
+  f.requestSubmit();
+});
 
 $('#add').addEventListener('submit', async (e) => {
   e.preventDefault();
