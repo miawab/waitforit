@@ -15,6 +15,7 @@ Reply with JSON only, no markdown:
  "evidence": for "happened", "changed" or "delayed": a few words copied exactly from the page or results that show it, in the page's own language; otherwise null,
  "earliest": "YYYY-MM-DD", the FIRST day it could happen (for "the week of Oct 19" that is Oct 19), or null,
  "expected": "YYYY-MM-DD", the LAST day it is likely to happen by (for "the week of Oct 19" that is the Sunday of that week), or null,
+ "expected_at": the exact moment it is due, ONLY if the page or the person gives a time of day ("results at 3 PM on Nov 3", "13:29"), as "YYYY-MM-DDTHH:MM+05:00" (use Pakistan time, +05:00, unless the page says another zone); otherwise null,
  "next_check_hours": a number,
  "done": true or false,
  "files": [{"href": a link copied exactly from the LINKS list, "name": short file name}]}
@@ -29,6 +30,7 @@ Choosing next_check_hours (be lazy, but don't miss it):
 - If you know roughly when it will happen and that is more than 3 days away, check rarely (24 to 168 hours), timed to wake up shortly before it.
 - If today is inside the expected window, within 3 days of it, or past it, check often (2 to 6 hours).
 - If you have no idea when, check every 12 to 24 hours.
+- If there is an exact time, give "expected_at": the code then wakes up a minute after that moment, so you don't need to aim for it yourself.
 
 Rules:
 - Only say "happened" when the text actually shows it. Rumours, old news and unrelated pages are "nothing".
@@ -54,7 +56,8 @@ export async function checkWatch(watch, now = new Date(), page = null) {
     page ||= await readPage(watch.url);
     if (watch.lastHash && page.hash === watch.lastHash) {
       // Same page as last time: nothing could have changed, so don't wake Gemma.
-      return { at: now.toISOString(), status: 'nothing', summary: 'Page unchanged since last check.', skipped: true, nextCheckAt: later(watch, now, watch.lastInterval || 12), hash: page.hash };
+      const hours = watch.lastInterval || 12;
+      return { at: now.toISOString(), status: 'nothing', summary: 'Page unchanged since last check.', skipped: true, nextCheckAt: nextLook(watch, now, hours, dueAt(watch.expectedAt), watch.expected), hash: page.hash };
     }
     source = { hash: page.hash, links: page.links, text: `${page.title || ''}\n${page.text}`, prompt: `PAGE: ${watch.url}\nTITLE: ${page.title || ''}\n\n${page.text}\n\nLINKS:\n${page.links.map((l) => `${l.href} | ${l.text}`).join('\n')}` };
   } else if (searchOn()) {
@@ -65,10 +68,11 @@ export async function checkWatch(watch, now = new Date(), page = null) {
   }
 
   const last = watch.checks?.findLast?.((c) => c.status !== 'nothing' || c.first) || watch.checks?.at(-1);
-  const user = `TODAY: ${now.toISOString().slice(0, 10)} (${now.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })})
+  const pkt = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Karachi' });
+  const user = `TODAY: ${now.toISOString().slice(0, 10)} (${now.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })}), now ${pkt} Pakistan time (+05:00)
 WAITING FOR: ${watch.ask}
 WHAT YOU TOLD THEM LAST TIME: ${last ? `${last.summary} ${(last.details || []).join(' ')}` : '(nothing yet, this is the first check)'}
-EXPECTED DATE YOU NOTED: ${watch.expected || 'unknown'}
+EXPECTED DATE YOU NOTED: ${watch.expected || 'unknown'}${watch.expectedAt ? ` (exact time ${watch.expectedAt})` : ''}
 
 ${source.prompt}`;
 
@@ -76,12 +80,9 @@ ${source.prompt}`;
   const { json, inTokens, outTokens, model } = await askJson(SYSTEM_PROMPT.replace(/LANGUAGE/g, language), user);
   const known = new Set(source.links.map((l) => l.href));
   const expected = /^\d{4}-\d{2}-\d{2}$/.test(json.expected || '') ? json.expected : null;
-  let hours = Number(json.next_check_hours) || 12;
-  // Gemma tends to stay sleepy even when the date is close, so close to (or past) the expected day we insist.
+  const hours = Number(json.next_check_hours) || 12;
   const earliest = /^\d{4}-\d{2}-\d{2}$/.test(json.earliest || '') ? json.earliest : expected;
-  const daysToStart = earliest ? (new Date(`${earliest}T00:00:00Z`) - now) / 86400e3 : Infinity;
-  if (daysToStart < 3) hours = Math.min(hours, 6);
-  else hours = Math.min(hours, (daysToStart - 1) * 24);
+  const at = dueAt(json.expected_at);
   // The model suggests, the code checks: news only goes out if Gemma can point at the words that show it.
   let status = ['happened', 'changed', 'delayed', 'nothing'].includes(json.status) ? json.status : 'nothing';
   // Sometimes it gives a list of quotes instead of one; one real quote is enough.
@@ -96,10 +97,11 @@ ${source.prompt}`;
     summary: String(json.summary || '').slice(0, 400),
     details: (Array.isArray(json.details) ? json.details : []).slice(0, 4).map((d) => String(d).slice(0, 200)),
     expected,
+    expectedAt: at ? at.toISOString() : null,
     done: Boolean(json.done),
     files: (Array.isArray(json.files) ? json.files : []).filter((f) => known.has(f?.href)).slice(0, 5),
     interval: hours,
-    nextCheckAt: later(watch, now, hours),
+    nextCheckAt: nextLook(watch, now, hours, at, earliest),
     hash: source.hash,
     model: model || MODEL,
     tokens: { in: inTokens || 0, out: outTokens || 0 },
@@ -120,10 +122,33 @@ export function quoted(quote, text) {
   return pieces.every((q) => ` ${t} `.includes(` ${q} `) || (q.length >= 12 && t.replace(/ /g, '').includes(q.replace(/ /g, ''))));
 }
 
-// Clamp Gemma's choice to the caps.
-function later(watch, now, hours) {
-  const min = CAPS.minMinutesBetweenChecks / 60;
-  const max = CAPS.maxDaysBetweenChecks * 24;
-  const h = Math.min(max, Math.max(min, hours));
-  return new Date(now.getTime() + h * 3600e3).toISOString();
+function dueAt(s) {
+  const d = new Date(String(s || ''));
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(s || '')) && !isNaN(d) ? d : null;
+}
+
+// When to look next. Gemma suggests hours; the code makes sure a known date or time isn't slept through,
+// and that a far-off one isn't checked every day:
+//   far away   -> one safety look halfway there, then halfway again (10 days: 5, 2.5, ...)
+//   exact time under 6 hours away -> a minute after it's due; then +2 min, every 15 min for an hour, then the usual 2-6 hours
+//   a day with no time, within 3 days or past -> every 2-6 hours
+export function nextLook(watch, now, hours, at, earliest) {
+  let mins = hours * 60;
+  let quick = false; // only a known exact moment may go under the usual 30-minute floor
+  if (at) {
+    const gap = (at - now) / 60e3;
+    if (gap > 6 * 60) mins = gap / 2;
+    else if (gap > 0) [mins, quick] = [gap + 1, true];
+    else if (gap > -10) [mins, quick] = [2, true];
+    else if (gap > -60) [mins, quick] = [15, true];
+    else mins = Math.min(hours, 6) * 60;
+  } else if (earliest) {
+    const gap = (new Date(`${earliest}T00:00:00+05:00`) - now) / 60e3;
+    mins = gap > 3 * 1440 ? gap / 2 : Math.min(hours, 6) * 60;
+  }
+  // A watch can't run quick checks forever (or for a made-up "in one minute"): a few per two hours, then the floor applies.
+  const recent = (watch.checks || []).filter((c) => now - new Date(c.at) < 2 * 3600e3).length;
+  const floor = quick && recent < CAPS.quickChecksPer2h ? 1 : CAPS.minMinutesBetweenChecks;
+  const m = Math.min(CAPS.maxDaysBetweenChecks * 1440, Math.max(floor, mins));
+  return new Date(now.getTime() + m * 60e3).toISOString();
 }

@@ -6,6 +6,7 @@ export const CAPS = {
   watchesPerPerson: 5,
   watchesTotal: 60,
   minMinutesBetweenChecks: 30,
+  quickChecksPer2h: 8, // checks under 30 minutes apart, only around a known exact time
   maxDaysBetweenChecks: 7,
   maxDaysWatching: 45,
   // Background checks may use this share of each daily AI cap; the rest stays free for people trying the site.

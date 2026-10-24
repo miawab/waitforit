@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { addWatch, getWatch, listWatches, countActive, updateWatch, removeWatch, bump, getPerson, setPerson, getVoice } from './store.js';
 import { searchQueryFor } from './agent.js';
-import { runWatch, tick } from './tick.js';
+import { runWatch, tick, useTimers } from './tick.js';
 import { safeUrl } from './page.js';
 import { CAPS, CapReached } from './limits.js';
 import { pushOn } from './notify.js';
@@ -14,6 +14,7 @@ const PORT = Number(process.env.PORT || 3000);
 const ADDS_PER_IP_PER_DAY = 10;
 const TICK_SECRET = process.env.TICK_SECRET;
 let ticking = false;
+useTimers();
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 const send = (res, status, body) => {
