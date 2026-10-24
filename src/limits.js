@@ -15,7 +15,7 @@ export const CAPS = {
     gemma: Number(process.env.CAP_GEMMA_PER_DAY || 400),
     groq: Number(process.env.CAP_GROQ_PER_DAY || 300), // free Groq plan: about 1,000 requests a day per model
     search: Number(process.env.CAP_SEARCH_PER_DAY || 8), // free SerpApi plan: 250 a month
-    voice: Number(process.env.CAP_VOICE_PER_DAY || 15), // free ElevenLabs plan: 10k characters a month
+    voice: Number(process.env.CAP_VOICE_PER_DAY || 8), // ElevenLabs runs out monthly (this key: 5,000 credits); notes are max 150 characters
     browser: Number(process.env.CAP_BROWSER_PER_DAY || 20),
   },
 };
